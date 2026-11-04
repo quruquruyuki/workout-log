@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e0f12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="運動ログ">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>運動ログ</title>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0e0f12;--panel:#15161a;--line:#24262c;--tx:#ececef;--mu:#7d7f88;--dim:#3a3c43;--hi:#ffffff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:15px}
+.num{font-family:"Jost",sans-serif;font-weight:400}
+html,body{touch-action:manipulation;overscroll-behavior-y:none}
+button{touch-action:manipulation;cursor:pointer}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:10;background:rgba(14,15,18,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;padding:6px 10px calc(env(safe-area-inset-bottom) + 6px)}
+.tab{flex:1;padding:6px 0 4px;border:none;background:none;color:var(--mu);font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tab b{font-size:20px;line-height:1.2;filter:grayscale(1);opacity:.6}
+.tab.on{color:var(--tx)}.tab.on b{filter:none;opacity:1}
+main{padding:calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 150px);max-width:560px;margin:0 auto}
+#v-month{padding-bottom:calc(env(safe-area-inset-bottom) + 90px)}
+.savebar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 58px);z-index:9;padding:10px 16px;background:linear-gradient(rgba(14,15,18,0),var(--bg) 35%)}
+.savebar .btn{margin:0;max-width:528px;display:block;margin:0 auto}
+.stp{display:flex;align-items:stretch;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stp input{border:none;border-radius:0;text-align:center;padding:12px 2px;min-width:0;background:none}
+.stp button{flex:0 0 38px;border:none;background:none;color:var(--tx);font-size:20px}
+.stp button:active{background:var(--line)}
+.hidden{display:none!important}
+.status{padding:14px;border:1px solid var(--line);border-radius:12px;color:var(--mu);font-size:13px;margin-bottom:14px;line-height:1.6}
+label.cap,.cap{display:block;color:var(--mu);font-size:11px;letter-spacing:.15em;margin:18px 0 8px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.chip{min-height:40px;padding:9px 14px;border:1px solid var(--line);border-radius:999px;background:none;color:var(--tx);font-size:13px}
+.chip.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.chip.add{color:var(--mu);border-style:dashed}
+input{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--tx);padding:11px 12px;font-size:16px;font-family:inherit}
+input:focus{outline:none;border-color:#55575f}
+.row{display:flex;gap:8px}.row>div{flex:1}
+.row small{display:block;color:var(--mu);font-size:11px;margin-bottom:5px}
+.btn{width:100%;margin-top:20px;padding:14px;border:none;border-radius:12px;background:var(--tx);color:var(--bg);font-size:15px;font-weight:600}
+.btn:disabled{opacity:.4}
+.btn.ghost{background:none;color:var(--tx);border:1px solid var(--line);font-weight:400}
+.hint{color:var(--mu);font-size:12px;margin-top:8px}
+.list{margin-top:6px}
+.item{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.item .t{flex:1}.item .t div:last-child{color:var(--mu);font-size:12px;margin-top:3px}
+.del{background:none;border:1px solid var(--line);color:var(--mu);border-radius:8px;padding:10px 12px;font-size:12px}
+.del.sure{color:#ff8a80;border-color:#ff8a80}
+/* month */
+.mhead{display:flex;align-items:center;gap:14px;margin:8px 0 6px}
+.mbig{font-family:"Jost";font-weight:300;font-size:64px;line-height:1}
+.mname{font-family:"Jost";letter-spacing:.3em;color:var(--mu);font-size:13px}
+.mnav{margin-left:auto;display:flex;gap:6px}
+.mnav button{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:none;color:var(--tx);font-size:16px}
+.sec{margin-top:34px;padding-top:4px}
+.sech{display:flex;justify-content:space-between;align-items:baseline;color:var(--mu);font-size:11px;letter-spacing:.2em}
+.stats{display:flex;gap:26px;margin:16px 0 4px}
+.stats b{display:block;font-family:"Jost";font-weight:400;font-size:40px;line-height:1}
+.stats b i{font-style:normal;font-size:16px;color:var(--mu);margin-left:2px}
+.stats span{font-family:"Jost";letter-spacing:.2em;font-size:10px;color:var(--mu)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line);margin-top:12px}
+.cal>div{border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-height:50px;padding:4px;text-align:center}
+.cal>.dow{min-height:auto;border:none;color:var(--mu);font-family:"Jost";font-size:10px;letter-spacing:.15em;padding:6px 0}
+.cal .d{font-family:"Jost";font-size:12px;color:var(--mu)}
+.cal .act .d{color:var(--tx)}
+.cal .ic{font-size:15px;margin-top:4px;line-height:1.2}
+.cal .out{opacity:.25}
+.calwrap{border-top:none}
+.body{display:flex;gap:6px;align-items:flex-start;margin-top:14px}
+.body svg{flex:0 0 46%;max-width:46%}
+.parts{flex:1;min-width:0}
+.prow{margin-bottom:12px}
+.prow .top{display:flex;align-items:baseline;font-size:13px}
+.prow .top .v{margin-left:auto;font-family:"Jost";font-size:18px}
+.prow .top .dl{width:34px;text-align:right;font-family:"Jost";font-size:11px;color:var(--mu)}
+.bar{position:relative;height:3px;background:var(--line);margin-top:4px;border-radius:2px}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--tx);border-radius:2px}
+.bar s{position:absolute;top:-4px;width:1px;height:11px;background:var(--mu)}
+.note{color:var(--dim);font-size:11px;margin-top:6px}
+.grp{margin-top:20px;font-size:14px;font-weight:600}
+.grp small{font-weight:400;color:var(--mu);font-size:11px;margin-left:8px}
+.ex{padding:11px 0;border-bottom:1px solid var(--line)}
+.ex .a{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ex .a span:last-child{color:var(--mu);font-size:11px;white-space:nowrap}
+.ex .a b{color:var(--tx);font-family:"Jost";font-weight:500}
+.ex .b{display:flex;justify-content:space-between;align-items:center;margin-top:7px;gap:10px}
+.dots{display:flex;gap:2px;flex:1;max-width:58%}
+.dots i{flex:1;height:5px;background:var(--line);border-radius:1px}
+.dots i.on{background:var(--hi)}
+.ex .b span{font-size:12px;white-space:nowrap}
+.run{padding:12px 0;border-bottom:1px solid var(--line)}
+.run .a{display:flex;justify-content:space-between;align-items:baseline}
+.run .a span:first-child{font-family:"Jost";font-size:17px}
+.run .a span:first-child small{font-family:inherit;color:var(--mu);font-size:11px;margin-left:6px}
+.run .a span:last-child{font-size:13px}
+.run .b{display:flex;justify-content:space-between;align-items:center;margin-top:7px;gap:10px}
+.run .b .bar{flex:0 0 34%;margin:0}
+.run .b span{font-size:12px;color:var(--tx);text-align:right}
+.empty{color:var(--mu);font-size:13px;padding:16px 0}
+textarea{width:100%;height:120px;background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:10px;font-size:12px;margin-top:8px}
+#auth{max-width:420px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 60px) 22px 40px}
+#auth h1{font-family:"Jost";font-weight:300;font-size:44px;margin:0 0 4px;letter-spacing:.02em}
+#auth p{color:var(--mu);font-size:13px;line-height:1.7}
+#auth input{margin-top:10px}
+.linkbtn{background:none;border:none;color:var(--mu);font-size:13px;margin-top:14px;text-decoration:underline;padding:6px 0}
+.acct{display:flex;justify-content:space-between;align-items:center;color:var(--mu);font-size:12px;margin-top:14px}
+.acct button{background:none;border:1px solid var(--line);color:var(--mu);border-radius:8px;padding:8px 12px;font-size:12px}
+.pend{display:inline-block;margin-left:6px;font-size:10px;color:#ffcc80;border:1px solid #6b5a3a;border-radius:6px;padding:1px 5px}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);z-index:20;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+
+
+<section id="auth" class="hidden">
+  <h1>運動ログ</h1>
+  <p id="authMsg">記録を保存するため、メールアドレスとパスワードでログインします。</p>
+  <form id="authForm">
+    <input type="email" id="email" placeholder="メールアドレス" autocomplete="email" required>
+    <input type="password" id="pass" placeholder="パスワード（6文字以上）" autocomplete="current-password" minlength="6" required>
+    <button class="btn" id="authBtn" type="submit">ログイン</button>
+  </form>
+  <button class="linkbtn" id="authSwitch">はじめての方は新規登録</button>
+</section>
+
+<main id="v-log" class="hidden">
+  <div id="status" class="status hidden"></div>
+  <label class="cap">DATE — 日付</label>
+  <div class="row" style="align-items:center">
+    <div style="flex:0 0 auto" class="seg" id="dayQuick"><button class="chip" data-o="0">今日</button><button class="chip" data-o="-1">昨日</button></div>
+    <div><input type="date" id="date"></div>
+  </div>
+  <label class="cap">TYPE — 種類</label>
+  <div class="seg" id="typeSeg">
+    <button class="chip on" data-t="strength">🏋️ 筋トレ</button>
+    <button class="chip" data-t="run">🏃 ラン</button>
+  </div>
+
+  <div id="fStrength">
+    <label class="cap">PART — 部位</label>
+    <div class="seg" id="partSeg"></div>
+    <label class="cap">EXERCISE — 種目</label>
+    <div class="seg" id="exSeg"></div>
+    <input id="exCustom" class="hidden" placeholder="種目名を入力" style="margin-top:8px">
+    <div class="row" style="margin-top:16px">
+      <div style="flex:1.3"><small>重さ（kg）</small><div class="stp"><button data-s="w" data-d="-1">−</button><input id="w" inputmode="decimal" placeholder="なし"><button data-s="w" data-d="1">＋</button></div></div>
+      <div style="flex:1"><small>セット</small><div class="stp"><button data-s="sets" data-d="-1">−</button><input id="sets" inputmode="numeric" value="3"><button data-s="sets" data-d="1">＋</button></div></div>
+    </div>
+    <div style="margin-top:10px"><small style="display:block;color:var(--mu);font-size:11px;margin-bottom:5px">回数</small><input id="reps" placeholder="例 12 / 12〜15 / 左右10"></div>
+    <div class="hint" id="prevHint"></div>
+  </div>
+
+  <div id="fRun" class="hidden">
+    <div class="row" style="margin-top:16px">
+      <div><small>時間（分）</small><input id="rmin" inputmode="decimal"></div>
+      <div><small>距離（km）</small><input id="rkm" inputmode="decimal"></div>
+    </div>
+    <label class="cap">PLACE — 場所</label>
+    <div class="seg" id="placeSeg">
+      <button class="chip on" data-p="屋内">屋内</button>
+      <button class="chip" data-p="屋外">屋外</button>
+    </div>
+    <label class="cap">MENU — 内容</label>
+    <input id="rmemo" placeholder="例 2分ラン（9.5km/h）＋2分歩き ×5">
+  </div>
+
+  <div class="savebar hidden" id="saveBar"><button class="btn" id="save" disabled>記録する</button></div>
+
+  <label class="cap" id="dayCap">この日の記録</label>
+  <div class="list" id="dayList"></div>
+</main>
+
+<main id="v-month" class="hidden">
+  <div class="mhead">
+    <div class="mbig" id="mNum"></div>
+    <div class="mname" id="mName"></div>
+    <div class="mnav"><button id="prevM">‹</button><button id="nextM">›</button></div>
+  </div>
+  <div id="monthBody"></div>
+  <div class="sec">
+    <div class="sech"><span>BACKUP — バックアップ</span></div>
+    <button class="btn ghost" id="csv">全記録をCSVでコピー</button>
+    <button class="btn ghost" id="csvDl" style="margin-top:10px">CSVファイルを保存</button>
+    <div class="hint">コピーしたものはメモやNotionに貼り付けて保管できます。</div>
+    <textarea id="csvBox" class="hidden" readonly></textarea>
+    <div class="acct"><span id="who"></span><button id="logout">ログアウト</button></div>
+  </div>
+</main>
+<nav id="nav" class="hidden">
+  <button class="tab" data-v="log"><b>✏️</b>記録する</button>
+  <button class="tab" data-v="month"><b>📅</b>月まとめ</button>
+</nav>
+<div id="toast"></div>
+
+<script src="config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
