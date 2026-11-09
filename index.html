@@ -112,6 +112,23 @@ textarea{width:100%;height:120px;background:var(--panel);color:var(--tx);border:
 .acct{display:flex;justify-content:space-between;align-items:center;color:var(--mu);font-size:12px;margin-top:14px}
 .acct button{background:none;border:1px solid var(--line);color:var(--mu);border-radius:8px;padding:8px 12px;font-size:12px}
 .pend{display:inline-block;margin-left:6px;font-size:10px;color:#ffcc80;border:1px solid #6b5a3a;border-radius:6px;padding:1px 5px}
+.mc{border:1px solid var(--line);border-radius:14px;margin-top:10px;overflow:hidden}
+.mc.on{border-color:#55575f;background:var(--panel)}
+.mch{display:flex;align-items:center;gap:12px;padding:13px 14px;width:100%;background:none;border:none;color:var(--tx);text-align:left}
+.mch .ck{flex:0 0 24px;height:24px;border-radius:50%;border:1.5px solid var(--dim);display:flex;align-items:center;justify-content:center;font-size:13px}
+.mc.on .ck{background:var(--tx);border-color:var(--tx);color:var(--bg)}
+.mch .nm{font-size:15px;font-weight:600}.mch .nm small{font-weight:400;color:var(--mu);font-size:11px;margin-left:6px}
+.mch .pv{color:var(--mu);font-size:12px;margin-top:3px}
+.mch .nx{font-size:12px;margin-top:2px}.nx.up{color:#a5d6a7}
+.mb{padding:0 14px 14px}
+.srow{display:flex;align-items:center;gap:6px;margin-top:8px}
+.srow .no{flex:0 0 18px;color:var(--mu);font-family:"Jost";font-size:13px}
+.srow .stp{flex:1}.srow .stp input{font-size:15px;padding:9px 0}
+.srow .stp button{flex-basis:34px}
+.srow .rm{flex:0 0 30px;height:30px;border:none;background:none;color:var(--mu);font-size:16px}
+.mb .ad{margin-top:8px;background:none;border:1px dashed var(--line);color:var(--mu);border-radius:10px;padding:9px;width:100%;font-size:13px}
+.mb input.memo{margin-top:8px;font-size:14px;padding:9px 11px}
+.unit{font-size:10px;color:var(--mu);margin-left:-4px;margin-right:2px}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);z-index:20;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
 #toast.on{opacity:1}
 </style>
@@ -139,11 +156,17 @@ textarea{width:100%;height:120px;background:var(--panel);color:var(--tx);border:
   </div>
   <label class="cap">TYPE — 種類</label>
   <div class="seg" id="typeSeg">
-    <button class="chip on" data-t="strength">🏋️ 筋トレ</button>
+    <button class="chip on" data-t="menu">📋 メニュー</button>
+    <button class="chip" data-t="strength">🏋️ その他の筋トレ</button>
     <button class="chip" data-t="run">🏃 ラン</button>
   </div>
 
-  <div id="fStrength">
+  <div id="fMenu">
+    <div class="hint" style="margin-top:12px">やる種目をタップすると、前回の記録と次回の目安からセットが入ります。実際の回数に直して「記録する」。</div>
+    <div id="menuList"></div>
+  </div>
+
+  <div id="fStrength" class="hidden">
     <label class="cap">PART — 部位</label>
     <div class="seg" id="partSeg"></div>
     <label class="cap">EXERCISE — 種目</label>

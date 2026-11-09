@@ -28,3 +28,8 @@ create policy "own rows select" on public.workouts for select to authenticated u
 create policy "own rows insert" on public.workouts for insert to authenticated with check (user_id = auth.uid());
 create policy "own rows update" on public.workouts for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "own rows delete" on public.workouts for delete to authenticated using (user_id = auth.uid());
+
+-- 追加（v2）：セット別の記録と片脚
+alter table public.workouts add column if not exists set_list jsonb;
+alter table public.workouts add column if not exists unilateral boolean not null default false;
+grant select, insert, update, delete on public.workouts to authenticated;

@@ -13,9 +13,9 @@ const lsKey = k => "wl_" + k + "_" + (session?.user?.id || "anon");
 const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(lsKey(k))) ?? d } catch (_) { return d } };
 const lsSet = (k, v) => { try { localStorage.setItem(lsKey(k), JSON.stringify(v)) } catch (_) {} };
 
-const fromRow = r => ({ id: r.id, date: r.date, type: r.type, part: r.part, exercise: r.exercise, weight: r.weight,
+const fromRow = r => ({ set_list: r.set_list || null, unilateral: !!r.unilateral, id: r.id, date: r.date, type: r.type, part: r.part, exercise: r.exercise, weight: r.weight,
   reps: r.reps, sets: r.sets, min: r.minutes, km: r.km, place: r.place, memo: r.memo, ts: r.created_at || "" });
-const toRow = x => ({ id: x.id, date: x.date, type: x.type, part: x.part ?? null, exercise: x.exercise ?? null,
+const toRow = x => ({ set_list: x.set_list ?? null, unilateral: !!x.unilateral, id: x.id, date: x.date, type: x.type, part: x.part ?? null, exercise: x.exercise ?? null,
   weight: x.weight ?? null, reps: x.reps ?? null, sets: x.sets ?? null, minutes: x.min ?? null, km: x.km ?? null,
   place: x.place ?? null, memo: x.memo ?? null, created_at: x.ts });
 
@@ -81,7 +81,7 @@ window.addEventListener("offline", () => setStatus("オフラインです。記�
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && session) flush(); });
 
 const PARTS=["胸","背中","肩","腕","臀","脚","腹・体幹"];
-const PRESETS={"胸":["チェストプレス","プッシュアップ","ペックフライ"],"背中":["ラットプルダウン","ケーブルプルオーバー","ニーリングワンハンドロウ","ローロウ","ワンハンドロウ","ロウイング","インバーテッドロウ"],"肩":["サイドレイズ","ショルダープレス","フェイスプル","リアデルト"],"腕":["フレンチプレス","トライセプスダウン","トライセプスキックバック"],"臀":["ブルガリアンスクワット","ヒップリフト","アブダクター","チューブステップ","ゴブレットスクワット"],"脚":["アダクター","プローンレッグカール"],"腹・体幹":["デッドバグ","プランク","リバースクランチ","レッグレイズ","サイドプランク・ローテーション"]};
+const PRESETS={"胸":["チェストプレス","プッシュアップ","ペックフライ"],"背中":["ラットプルダウン","ケーブルプルオーバー","ニーリングワンハンドロウ","ローロウ","ワンハンドロウ","ロウイング","インバーテッドロウ"],"肩":["サイドレイズ","ショルダープレス","フェイスプル","リアデルト"],"腕":["フレンチプレス","トライセプスダウン","トライセプスキックバック"],"臀":["ブルガリアンスクワット","ヒップリフト","アブダクター","チューブステップ","ゴブレットスクワット"],"脚":["レッグプレス","アダクター","プローンレッグカール"],"腹・体幹":["アブベンチ","デッドバグ","プランク","リバースクランチ","レッグレイズ","サイドプランク・ローテーション"]};
 const MONTHS=["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
 const $=id=>document.getElementById(id);
 const pad=n=>String(n).padStart(2,"0");
@@ -89,7 +89,17 @@ const ymd=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const today=new Date();
 let entries=[],ready=false,saving=false;
-const st={type:"strength",part:"胸",ex:null,custom:false,place:"屋内",y:today.getFullYear(),m:today.getMonth()};
+const MENU=[
+  {name:"レッグプレス",part:"脚",uni:true,max:60},
+  {name:"ラットプルダウン",part:"背中"},
+  {name:"チェストプレス",part:"胸"},
+  {name:"ショルダープレス",part:"肩"},
+  {name:"アブベンチ",part:"腹・体幹",bw:true},
+  {name:"プランク",part:"腹・体幹",bw:true,sec:true,target:30}
+];
+const MSTEP=5,TARGET=15;
+const menuSt={};
+const st={type:"menu",part:"胸",ex:null,custom:false,place:"屋内",y:today.getFullYear(),m:today.getMonth()};
 
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("on"),1800)}
 function setStatus(t){const s=$("status");if(t){s.textContent=t;s.classList.remove("hidden")}else s.classList.add("hidden")}
@@ -115,6 +125,7 @@ document.querySelectorAll(".stp button").forEach(b=>b.onclick=()=>{const i=$(b.d
   if(navigator.vibrate)try{navigator.vibrate(8)}catch(_){}});
 $("typeSeg").onclick=e=>{const b=e.target.closest("button");if(!b)return;st.type=b.dataset.t;
   [...$("typeSeg").children].forEach(x=>x.classList.toggle("on",x===b));
+  $("fMenu").classList.toggle("hidden",st.type!=="menu");
   $("fStrength").classList.toggle("hidden",st.type!=="strength");$("fRun").classList.toggle("hidden",st.type!=="run");updateSave()};
 $("placeSeg").onclick=e=>{const b=e.target.closest("button");if(!b)return;st.place=b.dataset.p;[...$("placeSeg").children].forEach(x=>x.classList.toggle("on",x===b))};
 
@@ -133,12 +144,73 @@ function lastOf(name){return entries.filter(x=>x.type==="strength"&&x.exercise==
 function prefill(){const l=lastOf(st.ex);if(l){$("w").value=l.weight??"";$("reps").value=l.reps??"";$("sets").value=l.sets??3}}
 function updatePrev(){const l=st.ex&&lastOf(st.ex);$("prevHint").textContent=l?`前回 ${l.date.slice(5).replace("-","/")}：${fmtSet(l)}`:""}
 function curEx(){return st.custom?$("exCustom").value.trim():st.ex}
-function updateSave(){$("save").disabled=!ready||saving||(st.type==="strength"&&!curEx())}
+function menuOn(){return MENU.filter(m=>menuSt[m.name])}
+function updateSave(){const n=menuOn().length;
+  $("save").textContent=st.type==="menu"&&n?`記録する（${n}種目）`:"記録する";
+  $("save").disabled=!ready||saving||(st.type==="strength"&&!curEx())||(st.type==="menu"&&!n)}
 
-function fmtSet(x){return [x.weight?x.weight+"kg":"",(x.reps?x.reps+"回":"")+(x.sets?"×"+x.sets:"")].filter(Boolean).join(" ")}
+/* --- per-set helpers --- */
+function setsOf(x){if(Array.isArray(x.set_list)&&x.set_list.length)return x.set_list;
+  return null}
+function fmtSet(x){const sl=setsOf(x);
+  if(!sl)return [x.weight?x.weight+"kg":"",(x.reps?x.reps+"回":"")+(x.sets?"×"+x.sets:"")].filter(Boolean).join(" ");
+  const u=x.exercise==="プランク"?"秒":"";
+  const grp=[];sl.forEach(s=>{const k=s.w==null?"自重":s.w+"kg";const g=grp[grp.length-1];
+    if(g&&g.k===k)g.r.push(s.r);else grp.push({k,r:[s.r]})});
+  const txt=grp.map(g=>{const rs=g.r.map(v=>v==null?"?":v+u);
+    const same=rs.every(v=>v===rs[0]);return g.k+"×"+(same&&rs.length>1?rs[0]+"×"+rs.length:rs.join(","))}).join(" → ");
+  return (x.unilateral?"片脚":"")+txt}
+function nextPlan(m){const l=lastOf(m.name);const sl=l&&setsOf(l);
+  const tgt=m.target||TARGET;
+  if(!sl)return{w:null,n:3,label:l?"前回はセット別の記録なし":"はじめての記録",up:false,base:l};
+  const ws=sl.map(s=>s.w).filter(v=>v!=null);const mx=ws.length?Math.max(...ws):null;
+  const allTop=sl.length>=3&&sl.every(s=>(s.w??null)===mx&&s.r!=null&&s.r>=tgt);
+  if(m.bw)return{w:null,n:Math.max(3,sl.length),label:allTop?(m.sec?"目標クリア。秒数を少し延ばしてもOK":"目標クリア。ゆっくり丁寧に"):`${tgt}${m.sec?"秒":"回"}×3を目指す`,up:allTop,base:l};
+  if(allTop){let nw=mx+MSTEP;let note="";if(m.max&&nw>m.max){nw=m.max;note="（マシン上限）"}
+    return nw>mx?{w:nw,n:3,label:`上げどき → ${nw}kg`,up:true,base:l}:{w:mx,n:3,label:`上限${mx}kg。下ろすのに3秒かけて負荷アップ`,up:false,base:l}}
+  return{w:mx,n:3,label:`${mx}kgで${tgt}回×3を目指す`,up:false,base:l}}
+function renderMenu(){
+  $("menuList").innerHTML=MENU.map(m=>{const p=nextPlan(m),on=menuSt[m.name];const l=p.base;
+    const pv=l?`前回 ${l.date.slice(5).replace("-","/")}：${esc(fmtSet(l))}${l.memo?"（"+esc(l.memo)+"）":""}`:"まだ記録なし";
+    let body="";
+    if(on){body=`<div class="mb">${on.sets.map((s,i)=>`<div class="srow"><span class="no">${i+1}</span>
+      ${m.bw?`<div class="stp" style="flex:0 0 74px;justify-content:center;align-items:center;color:var(--mu);font-size:13px">自重</div>`:
+      `<div class="stp"><button data-a="w-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="decimal" data-f="w" data-m="${m.name}" data-i="${i}" value="${s.w??""}" placeholder="kg"><span class="unit" style="align-self:center">kg</span><button data-a="w+" data-m="${m.name}" data-i="${i}">＋</button></div>`}
+      <div class="stp"><button data-a="r-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="numeric" data-f="r" data-m="${m.name}" data-i="${i}" value="${s.r??""}"><span class="unit" style="align-self:center">${m.sec?"秒":"回"}</span><button data-a="r+" data-m="${m.name}" data-i="${i}">＋</button></div>
+      <button class="rm" data-a="rm" data-m="${m.name}" data-i="${i}">×</button></div>`).join("")}
+      <button class="ad" data-a="add" data-m="${m.name}">＋ セットを追加</button>
+      <input class="memo" data-f="memo" data-m="${m.name}" placeholder="メモ（フォーム・違和感など）" value="${esc(on.memo||"")}"></div>`}
+    return `<div class="mc ${on?"on":""}"><button class="mch" data-a="tg" data-m="${m.name}"><span class="ck">${on?"✓":""}</span><span style="flex:1;min-width:0">
+      <div class="nm">${m.name}<small>${m.part}${m.uni?"・片脚":""}</small></div><div class="pv">${pv}</div><div class="nx ${p.up?"up":""}">次回の目安：${esc(p.label)}</div></span></button>${body}</div>`}).join("");
+  updateSave()}
+$("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;
+  const m=MENU.find(x=>x.name===b.dataset.m),a=b.dataset.a,i=+b.dataset.i;
+  if(a==="tg"){if(menuSt[m.name])delete menuSt[m.name];else{const p=nextPlan(m);const tgt=m.target||TARGET;
+      menuSt[m.name]={sets:Array.from({length:p.n},()=>({w:m.bw?null:p.w,r:tgt})),memo:""}}
+    renderMenu();return}
+  const o=menuSt[m.name];if(!o)return;
+  if(a==="add"){const last=o.sets[o.sets.length-1]||{w:null,r:m.target||TARGET};o.sets.push({...last})}
+  else if(a==="rm"){o.sets.splice(i,1);if(!o.sets.length)delete menuSt[m.name]}
+  else{const s=o.sets[i];const d=a.endsWith("+")?1:-1;
+    if(a[0]==="w"){s.w=Math.max(0,(s.w||0)+d*(s.w!=null&&s.w<5?1:MSTEP))||null}
+    else{s.r=Math.max(0,(s.r||0)+d*(m.sec?5:1))}
+    if(navigator.vibrate)try{navigator.vibrate(8)}catch(_){}}
+  renderMenu()});
+$("menuList").addEventListener("input",e=>{const t=e.target;if(!t.dataset.f)return;const o=menuSt[t.dataset.m];if(!o)return;
+  if(t.dataset.f==="memo"){o.memo=t.value;return}
+  const v=parseFloat(t.value);o.sets[+t.dataset.i][t.dataset.f]=isNaN(v)?null:v});
+function saveMenu(date){const list=menuOn();
+  list.forEach(m=>{const o=menuSt[m.name];const sl=o.sets.map(s=>({w:m.bw?null:(s.w??null),r:s.r??null}));
+    const ws=sl.map(s=>s.w).filter(v=>v!=null);
+    addEntry({type:"strength",date,part:m.part,exercise:m.name,unilateral:!!m.uni,set_list:sl,
+      weight:ws.length?Math.max(...ws):null,reps:sl.map(s=>s.r??"?").join(","),sets:sl.length,memo:(o.memo||"").trim()||null});
+    delete menuSt[m.name]});
+  return list.length}
 
 $("save").onclick=async()=>{if(!ready)return;let data;
   const date=$("date").value||ymd(today);
+  if(st.type==="menu"){saving=true;updateSave();const n=saveMenu(date);saving=false;
+    toast(`${n}種目を記録しました`+(navigator.onLine?"":"（オンラインになったら送信）"));renderMenu();return}
   if(st.type==="strength"){const ex=curEx();if(!ex)return;
     const w=parseFloat($("w").value);const s=parseInt($("sets").value,10);
     data={type:"strength",date,part:st.part,exercise:ex,weight:isNaN(w)?null:w,reps:$("reps").value.trim(),sets:isNaN(s)?1:s};
@@ -154,7 +226,7 @@ $("save").onclick=async()=>{if(!ready)return;let data;
 
 function renderDay(){const d=$("date").value;const list=entries.filter(x=>x.date===d).sort((a,b)=>a.ts.localeCompare(b.ts));
   $("dayCap").textContent=`${d.slice(5).replace("-","/")} の記録`;
-  $("dayList").innerHTML=list.length?list.map(x=>`<div class="item"><div class="t"><div>${x.type==="run"?"🏃 ラン":"🏋️ "+esc(x.exercise)}${x._pend?'<span class="pend">未送信</span>':""}</div><div>${x.type==="run"?`${x.min}分・${x.km}km・${esc(x.place)}${x.memo?"　"+esc(x.memo):""}`:esc(x.part)+"　"+esc(fmtSet(x))}</div></div><button class="del" data-id="${x.id}">削除</button></div>`).join(""):`<div class="empty">まだ記録はありません</div>`}
+  $("dayList").innerHTML=list.length?list.map(x=>`<div class="item"><div class="t"><div>${x.type==="run"?"🏃 ラン":"🏋️ "+esc(x.exercise)}${x._pend?'<span class="pend">未送信</span>':""}</div><div>${x.type==="run"?`${x.min}分・${x.km}km・${esc(x.place)}${x.memo?"　"+esc(x.memo):""}`:esc(x.part)+"　"+esc(fmtSet(x))+(x.memo?"　"+esc(x.memo):"")}</div></div><button class="del" data-id="${x.id}">削除</button></div>`).join(""):`<div class="empty">まだ記録はありません</div>`}
 $("dayList").onclick=async e=>{const b=e.target.closest(".del");if(!b)return;
   if(!b.classList.contains("sure")){b.classList.add("sure");b.textContent="本当に削除";setTimeout(()=>{b.classList.remove("sure");b.textContent="削除"},3000);return}
   b.disabled=true;removeEntry(b.dataset.id);toast("削除しました")};
@@ -245,7 +317,7 @@ function renderMonth(){const y=st.y,m=st.m,key=mkey(y,m);
 
 /* ---------- csv ---------- */
 function buildCsv(){const rows=[["日付","種類","部位","種目","重さkg","回数","セット","時間分","距離km","場所","内容"]];
-  entries.slice().sort((a,b)=>(a.date+a.ts).localeCompare(b.date+b.ts)).forEach(x=>rows.push(x.type==="run"?[x.date,"ラン","","","","","",x.min,x.km,x.place,x.memo]:[x.date,"筋トレ",x.part,x.exercise,x.weight??"",x.reps,x.sets,"","","",""]));
+  entries.slice().sort((a,b)=>(a.date+a.ts).localeCompare(b.date+b.ts)).forEach(x=>rows.push(x.type==="run"?[x.date,"ラン","","","","","",x.min,x.km,x.place,x.memo]:[x.date,"筋トレ",x.part,x.exercise,x.weight??"",x.reps,x.sets,"","","",[fmtSet(x),x.memo].filter(Boolean).join(" / ")]));
   return rows.map(r=>r.map(v=>{v=String(v??"");return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(",")).join("\n")}
 $("csvDl").onclick=()=>{const blob=new Blob(["\ufeff"+buildCsv()],{type:"text/csv"});const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);a.download="workout-log-"+ymd(new Date())+".csv";document.body.appendChild(a);a.click();
@@ -254,7 +326,7 @@ $("csv").onclick=async()=>{const csv=buildCsv();
   try{await navigator.clipboard.writeText(csv);toast(`${entries.length}件をコピーしました`)}
   catch(_){const t=$("csvBox");t.value=csv;t.classList.remove("hidden");t.select();toast("下の欄から全選択してコピーしてください")}};
 
-function renderAll(){renderEx();renderDay();if(!$("v-month").classList.contains("hidden"))renderMonth()}
+function renderAll(){renderMenu();renderEx();renderDay();if(!$("v-month").classList.contains("hidden"))renderMonth()}
 
 
 /* ---------- auth ---------- */
@@ -313,7 +385,7 @@ async function onSession(s) {
 }
 
 /* ---------- init ---------- */
-renderParts(); renderEx(); renderDay();
+renderParts(); renderMenu(); renderEx(); renderDay();
 if (!CFG.url || !CFG.key) {
   $("auth").classList.remove("hidden");
   $("authMsg").textContent = "config.js に Supabase の URL と公開キーが設定されていません。";
