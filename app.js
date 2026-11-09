@@ -21,7 +21,8 @@ const toRow = x => ({ set_list: x.set_list ?? null, unilateral: !!x.unilateral, 
 
 function recompute() {
   const dels = new Set(pending.filter(p => p.op === "del").map(p => p.id));
-  entries = server.filter(x => !dels.has(x.id))
+  const upd = new Map(pending.filter(p => p.op === "upd").map(p => [p.row.id, p.row]));
+  entries = server.filter(x => !dels.has(x.id)).map(x => upd.has(x.id) ? { ...upd.get(x.id), _pend: true } : x)
     .concat(pending.filter(p => p.op === "ins").map(p => ({ ...p.row, _pend: true })));
   lsSet("server", server); lsSet("pending", pending);
   renderAll();
@@ -34,7 +35,19 @@ function addEntry(data) {
   const row = { ...data, id: uuid(), ts: new Date().toISOString() };
   pending.push({ op: "ins", row }); recompute(); flush();
 }
+function updateEntry(id, patch) {
+  const pi = pending.findIndex(p => p.op === "ins" && p.row.id === id);
+  if (pi >= 0) pending[pi].row = { ...pending[pi].row, ...patch };
+  else {
+    const cur = entries.find(x => x.id === id); if (!cur) return;
+    const row = { ...cur, ...patch }; delete row._pend;
+    pending = pending.filter(p => !(p.op === "upd" && p.row.id === id));
+    pending.push({ op: "upd", row });
+  }
+  recompute(); flush();
+}
 function removeEntry(id) {
+  pending = pending.filter(p => !(p.op === "upd" && p.row.id === id));
   const i = pending.findIndex(p => p.op === "ins" && p.row.id === id);
   if (i >= 0) pending.splice(i, 1); else pending.push({ op: "del", id });
   recompute(); flush();
@@ -49,6 +62,10 @@ async function flush() {
         const { error } = await sb.from(TABLE).upsert(toRow(p.row));
         if (error) throw error;
         server.push({ ...p.row });
+      } else if (p.op === "upd") {
+        const { error } = await sb.from(TABLE).upsert(toRow(p.row));
+        if (error) throw error;
+        server = server.map(x => x.id === p.row.id ? { ...p.row } : x);
       } else {
         const { error } = await sb.from(TABLE).delete().eq("id", p.id);
         if (error) throw error;
@@ -166,6 +183,7 @@ function nextPlan(m){const l=lastOf(m.name);const sl=l&&setsOf(l);
   const ws=sl.map(s=>s.w).filter(v=>v!=null);const mx=ws.length?Math.max(...ws):null;
   const allTop=sl.length>=3&&sl.every(s=>(s.w??null)===mx&&s.r!=null&&s.r>=tgt);
   if(m.bw)return{w:null,n:Math.max(3,sl.length),label:allTop?(m.sec?"目標クリア。秒数を少し延ばしてもOK":"目標クリア。ゆっくり丁寧に"):`${tgt}${m.sec?"秒":"回"}×3を目指す`,up:allTop,base:l};
+  if(mx==null)return{w:null,n:3,label:"重さを入れて記録",up:false,base:l};
   if(allTop){let nw=mx+MSTEP;let note="";if(m.max&&nw>m.max){nw=m.max;note="（マシン上限）"}
     return nw>mx?{w:nw,n:3,label:`上げどき → ${nw}kg`,up:true,base:l}:{w:mx,n:3,label:`上限${mx}kg。下ろすのに3秒かけて負荷アップ`,up:false,base:l}}
   return{w:mx,n:3,label:`${mx}kgで${tgt}回×3を目指す`,up:false,base:l}}
@@ -173,7 +191,7 @@ function renderMenu(){
   $("menuList").innerHTML=MENU.map(m=>{const p=nextPlan(m),on=menuSt[m.name];const l=p.base;
     const pv=l?`前回 ${l.date.slice(5).replace("-","/")}：${esc(fmtSet(l))}${l.memo?"（"+esc(l.memo)+"）":""}`:"まだ記録なし";
     let body="";
-    if(on){body=`<div class="mb">${on.sets.map((s,i)=>`<div class="srow"><span class="no">${i+1}</span>
+    if(on){body=`<div class="mb">${on.sets.map((s,i)=>`<div class="srow"><button class="no ${s.done?"dn":""}" data-a="done" data-m="${m.name}" data-i="${i}">${s.done?"✓":i+1}</button>
       ${m.bw?`<div class="stp" style="flex:0 0 74px;justify-content:center;align-items:center;color:var(--mu);font-size:13px">自重</div>`:
       `<div class="stp"><button data-a="w-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="decimal" data-f="w" data-m="${m.name}" data-i="${i}" value="${s.w??""}" placeholder="kg"><span class="unit" style="align-self:center">kg</span><button data-a="w+" data-m="${m.name}" data-i="${i}">＋</button></div>`}
       <div class="stp"><button data-a="r-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="numeric" data-f="r" data-m="${m.name}" data-i="${i}" value="${s.r??""}"><span class="unit" style="align-self:center">${m.sec?"秒":"回"}</span><button data-a="r+" data-m="${m.name}" data-i="${i}">＋</button></div>
@@ -189,7 +207,9 @@ $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");
       menuSt[m.name]={sets:Array.from({length:p.n},()=>({w:m.bw?null:p.w,r:tgt})),memo:""}}
     renderMenu();return}
   const o=menuSt[m.name];if(!o)return;
-  if(a==="add"){const last=o.sets[o.sets.length-1]||{w:null,r:m.target||TARGET};o.sets.push({...last})}
+  if(a==="done"){const s=o.sets[i];s.done=!s.done;renderMenu();
+    if(s.done){const left=o.sets.some(x=>!x.done)||MENU.some(x=>menuSt[x.name]&&menuSt[x.name].sets.some(y=>!y.done));if(left)startTimer()}return}
+  if(a==="add"){const last=o.sets[o.sets.length-1]||{w:null,r:m.target||TARGET};o.sets.push({w:last.w,r:last.r})}
   else if(a==="rm"){o.sets.splice(i,1);if(!o.sets.length)delete menuSt[m.name]}
   else{const s=o.sets[i];const d=a.endsWith("+")?1:-1;
     if(a[0]==="w"){s.w=Math.max(0,(s.w||0)+d*(s.w!=null&&s.w<5?1:MSTEP))||null}
@@ -200,7 +220,7 @@ $("menuList").addEventListener("input",e=>{const t=e.target;if(!t.dataset.f)retu
   if(t.dataset.f==="memo"){o.memo=t.value;return}
   const v=parseFloat(t.value);o.sets[+t.dataset.i][t.dataset.f]=isNaN(v)?null:v});
 function saveMenu(date){const list=menuOn();
-  list.forEach(m=>{const o=menuSt[m.name];const sl=o.sets.map(s=>({w:m.bw?null:(s.w??null),r:s.r??null}));
+  list.forEach(m=>{const o=menuSt[m.name];const sl=o.sets.map(s=>({w:m.bw?null:(s.w??null),r:s.r??null}));stopTimer();
     const ws=sl.map(s=>s.w).filter(v=>v!=null);
     addEntry({type:"strength",date,part:m.part,exercise:m.name,unilateral:!!m.uni,set_list:sl,
       weight:ws.length?Math.max(...ws):null,reps:sl.map(s=>s.r??"?").join(","),sets:sl.length,memo:(o.memo||"").trim()||null});
@@ -226,10 +246,8 @@ $("save").onclick=async()=>{if(!ready)return;let data;
 
 function renderDay(){const d=$("date").value;const list=entries.filter(x=>x.date===d).sort((a,b)=>a.ts.localeCompare(b.ts));
   $("dayCap").textContent=`${d.slice(5).replace("-","/")} の記録`;
-  $("dayList").innerHTML=list.length?list.map(x=>`<div class="item"><div class="t"><div>${x.type==="run"?"🏃 ラン":"🏋️ "+esc(x.exercise)}${x._pend?'<span class="pend">未送信</span>':""}</div><div>${x.type==="run"?`${x.min}分・${x.km}km・${esc(x.place)}${x.memo?"　"+esc(x.memo):""}`:esc(x.part)+"　"+esc(fmtSet(x))+(x.memo?"　"+esc(x.memo):"")}</div></div><button class="del" data-id="${x.id}">削除</button></div>`).join(""):`<div class="empty">まだ記録はありません</div>`}
-$("dayList").onclick=async e=>{const b=e.target.closest(".del");if(!b)return;
-  if(!b.classList.contains("sure")){b.classList.add("sure");b.textContent="本当に削除";setTimeout(()=>{b.classList.remove("sure");b.textContent="削除"},3000);return}
-  b.disabled=true;removeEntry(b.dataset.id);toast("削除しました")};
+  $("dayList").innerHTML=list.length?list.map(x=>`<div class="item"><div class="t"><div>${x.type==="run"?"🏃 ラン":"🏋️ "+esc(x.exercise)}${x._pend?'<span class="pend">未送信</span>':""}</div><div>${x.type==="run"?`${x.min}分・${x.km}km・${esc(x.place)}${x.memo?"　"+esc(x.memo):""}`:esc(x.part)+"　"+esc(fmtSet(x))+(x.memo?"　"+esc(x.memo):"")}</div></div><button class="del" data-id="${x.id}">編集</button></div>`).join(""):`<div class="empty">まだ記録はありません</div>`}
+$("dayList").onclick=e=>{const it=e.target.closest(".item");if(!it)return;const b=it.querySelector(".del");if(b)openEdit(b.dataset.id)};
 
 /* ---------- month ---------- */
 $("prevM").onclick=()=>{st.m--;if(st.m<0){st.m=11;st.y--}renderMonth()};
@@ -278,7 +296,7 @@ function renderMonth(){const y=st.y,m=st.m,key=mkey(y,m);
   h+=`<div class="cal">${["MON","TUE","WED","THU","FRI","SAT","SUN"].map(d=>`<div class="dow">${d}</div>`).join("")}`;
   for(let i=0;i<first;i++)h+=`<div class="out"></div>`;
   for(let d=1;d<=nd;d++){const k=key+"-"+pad(d),s=actDays[k];
-    h+=`<div class="${s?"act":""}"><div class="d">${d}</div><div class="ic">${s?(s.has("strength")?"🏋️":"")+(s.has("run")?"🏃":""):""}</div></div>`}
+    h+=`<div class="${s?"act":""}" data-day="${k}"><div class="d">${d}</div><div class="ic">${s?(s.has("strength")?"🏋️":"")+(s.has("run")?"🏃":""):""}</div></div>`}
   const rest=(7-(first+nd)%7)%7;for(let i=0;i<rest;i++)h+=`<div class="out"></div>`;
   h+=`</div>`;
 
@@ -328,6 +346,88 @@ $("csv").onclick=async()=>{const csv=buildCsv();
 
 function renderAll(){renderMenu();renderEx();renderDay();if(!$("v-month").classList.contains("hidden"))renderMonth()}
 
+
+/* ---------- calendar -> day ---------- */
+$("monthBody").addEventListener("click",e=>{const c=e.target.closest("[data-day]");if(!c)return;
+  $("date").value=c.dataset.day;syncQuick();renderDay();location.hash="log";
+  setTimeout(()=>$("dayCap").scrollIntoView({behavior:"smooth",block:"start"}),60)});
+
+/* ---------- edit sheet ---------- */
+let ed=null;
+function openEdit(id){const x=entries.find(e=>e.id===id);if(!x)return;
+  ed={id,type:x.type,date:x.date,memo:x.memo||"",exercise:x.exercise,part:x.part,unilateral:!!x.unilateral,
+    min:x.min,km:x.km,place:x.place||"屋内",
+    sets:x.type==="strength"?(setsOf(x)?setsOf(x).map(s=>({w:s.w,r:s.r})):Array.from({length:x.sets||1},()=>({w:x.weight??null,r:parseInt(x.reps,10)||null}))):[],
+    sec:x.exercise==="プランク",sure:false};
+  renderEdit();$("sheet").classList.remove("hidden");document.body.style.overflow="hidden"}
+function closeEdit(){ed=null;$("sheet").classList.add("hidden");document.body.style.overflow=""}
+function renderEdit(){if(!ed)return;const u=ed.sec?"秒":"回";
+  let h=`<div class="shh"><b>${ed.type==="run"?"🏃 ラン":"🏋️ "+esc(ed.exercise)}</b><button class="x" data-e="close">✕</button></div>
+  <small class="lbl">日付</small><input type="date" data-ef="date" value="${ed.date}">`;
+  if(ed.type==="strength"){
+    h+=`<small class="lbl">セット${ed.unilateral?"（片脚）":""}</small>`+ed.sets.map((s,i)=>`<div class="srow"><span class="no" style="border:none">${i+1}</span>
+      <div class="stp"><button data-e="w-" data-i="${i}">−</button><input inputmode="decimal" data-ef="w" data-i="${i}" value="${s.w??""}" placeholder="自重"><span class="unit" style="align-self:center">kg</span><button data-e="w+" data-i="${i}">＋</button></div>
+      <div class="stp"><button data-e="r-" data-i="${i}">−</button><input inputmode="numeric" data-ef="r" data-i="${i}" value="${s.r??""}"><span class="unit" style="align-self:center">${u}</span><button data-e="r+" data-i="${i}">＋</button></div>
+      <button class="rm" data-e="rm" data-i="${i}">×</button></div>`).join("")+`<button class="ad" data-e="add">＋ セットを追加</button>`;
+  }else{
+    h+=`<div class="row" style="margin-top:6px"><div><small class="lbl">時間（分）</small><input inputmode="decimal" data-ef="min" value="${ed.min??""}"></div><div><small class="lbl">距離（km）</small><input inputmode="decimal" data-ef="km" value="${ed.km??""}"></div></div>
+    <small class="lbl">場所</small><div class="seg">${["屋内","屋外"].map(p=>`<button class="chip ${ed.place===p?"on":""}" data-e="place" data-v="${p}">${p}</button>`).join("")}</div>`;
+  }
+  h+=`<small class="lbl">メモ</small><input data-ef="memo" value="${esc(ed.memo)}" placeholder="${ed.type==="run"?"内容":"フォーム・違和感など"}">
+  <button class="btn" data-e="save">保存する</button>
+  <button class="btn ghost ${ed.sure?"danger":""}" data-e="del" style="margin-top:10px">${ed.sure?"本当に削除する":"この記録を削除"}</button>`;
+  $("sheetBody").innerHTML=h}
+$("sheet").addEventListener("click",e=>{if(e.target.id==="sheet"){closeEdit();return}
+  const b=e.target.closest("[data-e]");if(!b||!ed)return;const a=b.dataset.e,i=+b.dataset.i;
+  if(a==="close"){closeEdit();return}
+  if(a==="place"){ed.place=b.dataset.v}
+  else if(a==="add"){const l=ed.sets[ed.sets.length-1]||{w:null,r:null};ed.sets.push({w:l.w,r:l.r})}
+  else if(a==="rm"){ed.sets.splice(i,1)}
+  else if(a==="w-"||a==="w+"||a==="r-"||a==="r+"){const s=ed.sets[i],d=a.endsWith("+")?1:-1;
+    if(a[0]==="w")s.w=Math.max(0,(s.w||0)+d*(s.w!=null&&s.w<5?1:MSTEP))||null;else s.r=Math.max(0,(s.r||0)+d*(ed.sec?5:1))}
+  else if(a==="del"){if(!ed.sure){ed.sure=true;renderEdit();return}removeEntry(ed.id);closeEdit();toast("削除しました");return}
+  else if(a==="save"){let patch={date:ed.date||ymd(today),memo:ed.memo.trim()||null};
+    if(ed.type==="strength"){if(!ed.sets.length){toast("セットが0です。削除する場合は下のボタンから");return}
+      const sl=ed.sets.map(s=>({w:s.w??null,r:s.r??null}));const ws=sl.map(s=>s.w).filter(v=>v!=null);
+      Object.assign(patch,{set_list:sl,sets:sl.length,weight:ws.length?Math.max(...ws):null,reps:sl.map(s=>s.r??"?").join(",")});
+    }else{Object.assign(patch,{min:parseFloat(ed.min)||0,km:parseFloat(ed.km)||0,place:ed.place})}
+    updateEntry(ed.id,patch);closeEdit();toast("更新しました");return}
+  renderEdit()});
+$("sheet").addEventListener("input",e=>{const t=e.target,f=t.dataset.ef;if(!f||!ed)return;
+  if(f==="w"||f==="r"){const v=parseFloat(t.value);ed.sets[+t.dataset.i][f]=isNaN(v)?null:v}else ed[f]=t.value});
+
+/* ---------- rest timer ---------- */
+let tEnd=0,tTick=null,tLen=90,tDone=false,actx=null,wlock=null;
+try{tLen=+localStorage.getItem("wl_rest")||90}catch(_){}
+function unlockAudio(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume()}catch(_){}}
+function beep(){if(!actx)return;[0,0.35,0.7].forEach(t=>{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=880;o.connect(g);g.connect(actx.destination);
+  const at=actx.currentTime+t;g.gain.setValueAtTime(0.0001,at);g.gain.exponentialRampToValueAtTime(0.4,at+0.02);g.gain.exponentialRampToValueAtTime(0.0001,at+0.25);o.start(at);o.stop(at+0.3)})}
+async function keepAwake(on){try{if(on&&navigator.wakeLock&&!wlock){wlock=await navigator.wakeLock.request("screen");wlock.addEventListener("release",()=>wlock=null)}
+  if(!on&&wlock){await wlock.release();wlock=null}}catch(_){}}
+function fmtT(sec){sec=Math.max(0,Math.ceil(sec));return Math.floor(sec/60)+":"+pad(sec%60)}
+function renderTimer(){const el=$("timer");if(!tEnd&&!tDone){el.classList.add("hidden");return}
+  el.classList.remove("hidden");const left=(tEnd-Date.now())/1000;
+  el.classList.toggle("done",tDone);
+  $("tTime").textContent=tDone?"0:00":fmtT(left);$("tLabel").textContent=tDone?"休憩終了！次のセットへ":"休憩中";
+  $("tBar").style.width=tDone?"100%":Math.min(100,(1-left/tLen)*100)+"%"}
+function startTimer(len){unlockAudio();if(len)tLen=len;tEnd=Date.now()+tLen*1000;tDone=false;keepAwake(true);
+  clearInterval(tTick);tTick=setInterval(tick,250);renderTimer();renderRestChips()}
+function tick(){if(!tEnd)return;if(Date.now()>=tEnd){tEnd=0;tDone=true;clearInterval(tTick);beep();
+    if(navigator.vibrate)try{navigator.vibrate([300,150,300])}catch(_){}
+    setTimeout(()=>{if(tDone){tDone=false;renderTimer();keepAwake(false)}},15000)}
+  renderTimer()}
+function stopTimer(){tEnd=0;tDone=false;clearInterval(tTick);keepAwake(false);renderTimer()}
+function renderRestChips(){$("restSeg").innerHTML=[60,90,120].map(v=>`<button class="chip ${v===tLen?"on":""}" data-r="${v}">${v}秒</button>`).join("")+`<button class="chip" data-r="go">⏱ スタート</button>`}
+$("restSeg").onclick=e=>{const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.r==="go"){startTimer();return}
+  tLen=+b.dataset.r;try{localStorage.setItem("wl_rest",tLen)}catch(_){}
+  if(tEnd)startTimer(tLen);else renderRestChips()};
+$("timer").onclick=e=>{const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.t==="stop"){stopTimer();return}
+  if(tDone){startTimer();return}
+  tEnd+=(+b.dataset.t)*1000;tLen=Math.max(10,tLen+(+b.dataset.t));renderTimer()};
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){tick();if(tEnd)keepAwake(true)}});
+renderRestChips();
 
 /* ---------- auth ---------- */
 let signUpMode = false;
