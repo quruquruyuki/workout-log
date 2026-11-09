@@ -73,7 +73,7 @@ async function load() {
     server = all.map(fromRow); setStatus(""); recompute(); flush();
   } catch (e) {
     console.warn(e);
-    setStatus("サーバーから記録を読み込めませんでした。表示は前回保存した内容です。");
+    setStatus("サーバーから記録を読み込めませんでした。表示は前回保存した内容です。（" + (e?.code ? e.code + ": " : "") + (e?.message || e) + "）");
   }
 }
 window.addEventListener("online", () => { setStatus(""); flush(); load(); });
