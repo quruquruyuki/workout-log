@@ -367,13 +367,13 @@ function bodySvg(v){/* v: part -> 0..1 */
     <text x="50" y="234" fill="#7d7f88" font-size="7" text-anchor="middle" font-family="Jost" letter-spacing="2">${label}</text></g>`;
   return `<svg viewBox="0 0 205 238" xmlns="http://www.w3.org/2000/svg">${fig(FRONT,0,"FRONT")}${fig(BACK,105,"BACK")}</svg>`}
 
-function weekHtml(){const now=new Date();const dow=(now.getDay()+6)%7;
+function weekHtml(){const now=new Date();const dow=now.getDay();
   const mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow);const days=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);days.push(ymd(d))}
   const sdays=new Set(entries.filter(x=>x.type==="strength").map(x=>x.date));
   const done=days.filter(d=>sdays.has(d)).length,GOAL=2;
   const last=[...sdays].filter(d=>d<=ymd(now)).sort().pop();
   const since=last?Math.round((new Date(ymd(now)+"T00:00")-new Date(last+"T00:00"))/86400000):null;
-  const wd="月火水木金土日";
+  const wd="日月火水木金土";
   return `<div class="week"><div class="wk-h"><span>THIS WEEK — 今週の筋トレ</span><b>${done}<i>/${GOAL}回</i></b></div>
     <div class="wk-d">${days.map((d,i)=>`<div class="${sdays.has(d)?"on":""} ${d===ymd(now)?"td":""}"><i>${sdays.has(d)?"🏋️":""}</i><span>${wd[i]}</span></div>`).join("")}</div>
     <div class="wk-f">${done>=GOAL?"今週の目標達成 ✓":`あと${GOAL-done}回`}${since!=null?`　・　${since===0?"今日やりました":`前回から${since}日`}`:""}</div></div>`}
@@ -387,9 +387,9 @@ function renderMonth(){const y=st.y,m=st.m,key=mkey(y,m);
   let h="";
   /* calendar */
   const actDays={};inM.forEach(x=>{(actDays[x.date]=actDays[x.date]||new Set()).add(x.type)});
-  const first=(new Date(y,m,1).getDay()+6)%7;
+  const first=new Date(y,m,1).getDay();
   h+=`<div class="stats" style="margin-top:6px"><div><b>${str.length?new Set(str.map(x=>x.date)).size:0}</b><span>🏋️ 筋トレ</span></div><div><b>${runs.length}</b><span>🏃 ラン</span></div><div><b>${Object.keys(actDays).length}</b><span>活動日</span></div></div>`;
-  h+=`<div class="cal">${["MON","TUE","WED","THU","FRI","SAT","SUN"].map(d=>`<div class="dow">${d}</div>`).join("")}`;
+  h+=`<div class="cal">${["SUN","MON","TUE","WED","THU","FRI","SAT"].map(d=>`<div class="dow">${d}</div>`).join("")}`;
   for(let i=0;i<first;i++)h+=`<div class="out"></div>`;
   const tk=ymd(new Date());
   for(let d=1;d<=nd;d++){const k=key+"-"+pad(d),s=actDays[k];
