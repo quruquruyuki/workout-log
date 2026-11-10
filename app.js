@@ -138,7 +138,7 @@ function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clear
 function setStatus(t){const s=$("status");if(t){s.textContent=t;s.classList.remove("hidden")}else s.classList.add("hidden")}
 
 /* ---------- routing ---------- */
-function route(){if(!session)return;const v=location.hash==="#month"?"month":"log";
+function route(){if(!session)return;const v=location.hash==="#log"?"log":"month";
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
   $("v-log").classList.toggle("hidden",v!=="log");$("saveBar").classList.toggle("hidden",v!=="log");$("v-month").classList.toggle("hidden",v!=="month");
   if(v==="month")renderMonth();window.scrollTo(0,0)}

@@ -1,4 +1,4 @@
-const CACHE = "wl-v8";
+const CACHE = "wl-v9";
 const SHELL = ["./", "index.html", "app.js", "config.js", "manifest.webmanifest", "icons/icon-192.png", "icons/apple-touch-icon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
