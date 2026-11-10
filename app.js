@@ -400,8 +400,8 @@ $("sheet").addEventListener("input",e=>{const t=e.target,f=t.dataset.ef;if(!f||!
 let tEnd=0,tTick=null,tLen=90,tDone=false,actx=null,wlock=null;
 try{tLen=+localStorage.getItem("wl_rest")||90}catch(_){}
 function unlockAudio(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume()}catch(_){}}
-function beep(){if(!actx)return;[0,0.35,0.7].forEach(t=>{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=880;o.connect(g);g.connect(actx.destination);
-  const at=actx.currentTime+t;g.gain.setValueAtTime(0.0001,at);g.gain.exponentialRampToValueAtTime(0.4,at+0.02);g.gain.exponentialRampToValueAtTime(0.0001,at+0.25);o.start(at);o.stop(at+0.3)})}
+function beep(){if(!actx)return;[0,0.2,0.4,0.6].forEach(t=>{const o=actx.createOscillator(),g=actx.createGain();o.type="square";o.frequency.value=t%0.4?1320:990;o.connect(g);g.connect(actx.destination);
+  const at=actx.currentTime+t;g.gain.setValueAtTime(0.0001,at);g.gain.exponentialRampToValueAtTime(0.5,at+0.01);g.gain.exponentialRampToValueAtTime(0.0001,at+0.16);o.start(at);o.stop(at+0.2)})}
 async function keepAwake(on){try{if(on&&navigator.wakeLock&&!wlock){wlock=await navigator.wakeLock.request("screen");wlock.addEventListener("release",()=>wlock=null)}
   if(!on&&wlock){await wlock.release();wlock=null}}catch(_){}}
 function fmtT(sec){sec=Math.max(0,Math.ceil(sec));return Math.floor(sec/60)+":"+pad(sec%60)}
@@ -410,13 +410,22 @@ function renderTimer(){const el=$("timer");if(!tEnd&&!tDone){el.classList.add("h
   el.classList.toggle("done",tDone);
   $("tTime").textContent=tDone?"0:00":fmtT(left);$("tLabel").textContent=tDone?"休憩終了！次のセットへ":"休憩中";
   $("tBar").style.width=tDone?"100%":Math.min(100,(1-left/tLen)*100)+"%"}
-function startTimer(len){unlockAudio();if(len)tLen=len;tEnd=Date.now()+tLen*1000;tDone=false;keepAwake(true);
+function startTimer(len){unlockAudio();alarmOff();$("timer").classList.remove("soon");if(len)tLen=len;tEnd=Date.now()+tLen*1000;tDone=false;keepAwake(true);
   clearInterval(tTick);tTick=setInterval(tick,250);renderTimer();renderRestChips()}
-function tick(){if(!tEnd)return;if(Date.now()>=tEnd){tEnd=0;tDone=true;clearInterval(tTick);beep();
-    if(navigator.vibrate)try{navigator.vibrate([300,150,300])}catch(_){}
-    setTimeout(()=>{if(tDone){tDone=false;renderTimer();keepAwake(false)}},15000)}
+let lastTickSec=-1,alarmIv=null;
+function tone(f,d,v){if(!actx)return;const o=actx.createOscillator(),g=actx.createGain();o.type="square";o.frequency.value=f;o.connect(g);g.connect(actx.destination);
+  const at=actx.currentTime;g.gain.setValueAtTime(0.0001,at);g.gain.exponentialRampToValueAtTime(v||0.3,at+0.01);g.gain.exponentialRampToValueAtTime(0.0001,at+d);o.start(at);o.stop(at+d+0.05)}
+function alarmOn(){$("tOver").classList.remove("hidden");let n=0;
+  const ring=()=>{beep();if(navigator.vibrate)try{navigator.vibrate([400,150,400])}catch(_){}
+    if(++n>=12)alarmOff()};
+  ring();clearInterval(alarmIv);alarmIv=setInterval(ring,1600)}
+function alarmOff(){clearInterval(alarmIv);alarmIv=null;$("tOver").classList.add("hidden");if(tDone){tDone=false;renderTimer();keepAwake(false)}}
+function tick(){if(!tEnd)return;const left=(tEnd-Date.now())/1000;
+  if(left<=0){tEnd=0;tDone=true;clearInterval(tTick);lastTickSec=-1;renderTimer();alarmOn();return}
+  const sec=Math.ceil(left);if(sec<=3&&sec!==lastTickSec){lastTickSec=sec;tone(660,0.12,0.25)}
+  $("timer").classList.toggle("soon",left<=5);
   renderTimer()}
-function stopTimer(){tEnd=0;tDone=false;clearInterval(tTick);keepAwake(false);renderTimer()}
+function stopTimer(){tEnd=0;tDone=false;clearInterval(tTick);alarmOff();keepAwake(false);$("timer").classList.remove("soon");renderTimer()}
 function renderRestChips(){$("restSeg").innerHTML=[60,90,120].map(v=>`<button class="chip ${v===tLen?"on":""}" data-r="${v}">${v}秒</button>`).join("")+`<button class="chip" data-r="go">⏱ スタート</button>`}
 $("restSeg").onclick=e=>{const b=e.target.closest("button");if(!b)return;
   if(b.dataset.r==="go"){startTimer();return}
@@ -427,7 +436,26 @@ $("timer").onclick=e=>{const b=e.target.closest("button");if(!b)return;
   if(tDone){startTimer();return}
   tEnd+=(+b.dataset.t)*1000;tLen=Math.max(10,tLen+(+b.dataset.t));renderTimer()};
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){tick();if(tEnd)keepAwake(true)}});
+$("tOver").onclick=e=>{const b=e.target.closest("[data-o]");
+  if(b&&b.dataset.o==="again"){startTimer();return}
+  stopTimer()};
 renderRestChips();
+
+/* ---------- Claudeに相談 ---------- */
+function buildConsult(){const since=new Date();since.setDate(since.getDate()-42);const sk=ymd(since);
+  const rows=entries.filter(x=>x.date>=sk).sort((a,b)=>(a.date+a.ts).localeCompare(b.date+b.ts));
+  const byDate={};rows.forEach(x=>(byDate[x.date]=byDate[x.date]||[]).push(x));
+  let t="運動ログアプリの直近6週間の記録です。フォームや重量設定、違和感についてアドバイスをください。\n";
+  t+="（ルール：3セット全部で15回できたら次回1段階上げる／セット間休憩"+tLen+"秒）\n\n";
+  Object.keys(byDate).forEach(d=>{t+="■ "+d+"\n";byDate[d].forEach(x=>{
+    t+=x.type==="run"?`- ラン ${x.min}分 ${x.km}km ${x.place||""}${x.memo?"（"+x.memo+"）":""}\n`
+      :`- ${x.exercise}：${fmtSet(x)}${x.memo?"（メモ："+x.memo+"）":""}\n`})});
+  const notes=rows.filter(x=>x.memo);
+  if(notes.length)t+="\n【メモがある記録】\n"+notes.map(x=>`${x.date.slice(5)} ${x.exercise||"ラン"}：${x.memo}`).join("\n")+"\n";
+  return t}
+$("consult").onclick=async()=>{const t=buildConsult();
+  try{await navigator.clipboard.writeText(t);toast("コピーしました。Claudeに貼り付けてください")}
+  catch(_){const b=$("csvBox");b.value=t;b.classList.remove("hidden");b.select();toast("下の欄から全選択してコピーしてください")}};
 
 /* ---------- auth ---------- */
 let signUpMode = false;

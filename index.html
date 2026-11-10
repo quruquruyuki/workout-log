@@ -151,6 +151,14 @@ small.lbl{display:block;color:var(--mu);font-size:11px;margin:14px 0 6px}
 #sheet .ad{margin-top:8px;background:none;border:1px dashed var(--line);color:var(--mu);border-radius:10px;padding:9px;width:100%;font-size:13px}
 .btn.danger{color:#ff8a80;border-color:#ff8a80}
 .cal>div[data-day]{cursor:pointer}
+#timer.soon{border-color:#ffb74d;background:#3e2a10}#timer.soon .tl b{color:#ffcc80}
+#tOver{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:#1b5e20;animation:flash .8s infinite alternate}
+#tOver .ov{text-align:center;padding:24px;width:100%;max-width:420px}
+#tOver .big{font-size:56px;font-weight:800;color:#fff;letter-spacing:.05em}
+#tOver .sub{font-size:22px;color:#e8f5e9;margin:8px 0 34px}
+#tOver .btn{background:#fff;color:#1b5e20;font-size:17px;padding:16px}
+#tOver .btn.ghost{background:none;color:#fff;border:1px solid rgba(255,255,255,.6)}
+@keyframes flash{from{background:#1b5e20}to{background:#43a047}}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);z-index:20;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
 #toast.on{opacity:1}
 </style>
@@ -232,6 +240,11 @@ small.lbl{display:block;color:var(--mu);font-size:11px;margin:14px 0 6px}
   </div>
   <div id="monthBody"></div>
   <div class="sec">
+    <div class="sech"><span>ASK CLAUDE — 相談</span></div>
+    <button class="btn ghost" id="consult">Claudeに相談用にコピー（直近6週間）</button>
+    <div class="hint">記録とメモを文章にしてコピーします。Claudeのチャットに貼り付けて相談できます。</div>
+  </div>
+  <div class="sec">
     <div class="sech"><span>BACKUP — バックアップ</span></div>
     <button class="btn ghost" id="csv">全記録をCSVでコピー</button>
     <button class="btn ghost" id="csvDl" style="margin-top:10px">CSVファイルを保存</button>
@@ -248,6 +261,11 @@ small.lbl{display:block;color:var(--mu);font-size:11px;margin:14px 0 6px}
   <div class="tl"><span id="tLabel">休憩中</span><b id="tTime">1:30</b></div>
   <button data-t="-15">−15</button><button data-t="15">＋15</button><button data-t="stop">✕</button>
 </div>
+<div id="tOver" class="hidden"><div class="ov">
+  <div class="big">休憩終了</div><div class="sub">次のセットへ！</div>
+  <button class="btn" data-o="ok">OK（タップで閉じる）</button>
+  <button class="btn ghost" data-o="again" style="margin-top:10px">もう一度休憩</button>
+</div></div>
 <div id="sheet" class="hidden"><div class="sheet" id="sheetBody"></div></div>
 <div id="toast"></div>
 
