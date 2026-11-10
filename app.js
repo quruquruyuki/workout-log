@@ -203,8 +203,11 @@ function renderMenu(){
   updateSave()}
 $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;
   const m=MENU.find(x=>x.name===b.dataset.m),a=b.dataset.a,i=+b.dataset.i;
-  if(a==="tg"){if(menuSt[m.name])delete menuSt[m.name];else{const p=nextPlan(m);const tgt=m.target||TARGET;
-      menuSt[m.name]={sets:Array.from({length:p.n},()=>({w:m.bw?null:p.w,r:tgt})),memo:""}}
+  if(a==="tg"){if(menuSt[m.name])delete menuSt[m.name];else{const tgt=m.target||TARGET;
+      const l=lastOf(m.name);const sl=l&&setsOf(l);
+      const n=Math.max(3,sl?sl.length:0);
+      const lw=i=>{if(m.bw)return null;if(sl){const s=sl[Math.min(i,sl.length-1)];return s.w??null}return l?(l.weight??null):null};
+      menuSt[m.name]={sets:Array.from({length:n},(_,i)=>({w:lw(i),r:tgt})),memo:""}}
     renderMenu();return}
   const o=menuSt[m.name];if(!o)return;
   if(a==="done"){const s=o.sets[i];s.done=!s.done;renderMenu();
