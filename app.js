@@ -97,7 +97,7 @@ window.addEventListener("online", () => { setStatus(""); flush(); load(); });
 window.addEventListener("offline", () => setStatus("オフラインです。記録は端末に保存され、オンラインになると送信されます。"));
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && session) flush(); });
 
-const PARTS=["胸","背中","肩","腕","臀","脚","腹・体幹"];
+const PARTS=["肩","胸","背中","腕","腹・体幹","臀","脚"];
 const PRESETS={"胸":["チェストプレス","プッシュアップ","ペックフライ"],"背中":["ラットプルダウン","ケーブルプルオーバー","ニーリングワンハンドロウ","ローロウ","ワンハンドロウ","ロウイング","インバーテッドロウ"],"肩":["サイドレイズ","ショルダープレス","フェイスプル","リアデルト"],"腕":["フレンチプレス","トライセプスダウン","トライセプスキックバック"],"臀":["ブルガリアンスクワット","ヒップリフト","アブダクター","チューブステップ","ゴブレットスクワット"],"脚":["レッグプレス","アダクター","プローンレッグカール"],"腹・体幹":["アブベンチ","デッドバグ","プランク","リバースクランチ","レッグレイズ","サイドプランク・ローテーション"]};
 const MONTHS=["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
 const $=id=>document.getElementById(id);
