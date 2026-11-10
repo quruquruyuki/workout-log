@@ -114,15 +114,10 @@ const MENUS={machine:[
   {name:"プランク",part:"腹・体幹",bw:true,sec:true,target:30},
   {name:"レッグプレス",part:"脚",uni:true,max:60}
 ],db:[
-  {name:"ダンベルショルダープレス",part:"肩",step:1},
   {name:"サイドレイズ",part:"肩",step:1},
-  {name:"ダンベルフロアプレス",part:"胸",step:1},
   {name:"ワンハンドロウ",part:"背中",step:1,uni:"片手"},
   {name:"ダンベルカール",part:"腕",step:1},
-  {name:"フレンチプレス",part:"腕",step:1},
-  {name:"ゴブレットスクワット",part:"脚",step:1},
-  {name:"ブルガリアンスクワット",part:"脚",step:1,uni:"片脚"},
-  {name:"ルーマニアンデッドリフト",part:"臀",step:1}
+  {name:"フレンチプレス",part:"腕",step:1}
 ]};
 const ALLM=[...MENUS.machine,...MENUS.db];
 const isMenu=t=>t==="machine"||t==="db";
