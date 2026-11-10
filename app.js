@@ -334,7 +334,7 @@ function renderMonth(){const y=st.y,m=st.m,key=mkey(y,m);
       names.forEach(n=>{const a=byEx[n],days=new Set(a.map(x=>+x.date.slice(8)));
         const last=a.slice().sort((x,y)=>(y.date+y.ts).localeCompare(x.date+x.ts))[0];
         let dots="";for(let d=1;d<=nd;d++)dots+=`<i class="${days.has(d)?"on":""}"></i>`;
-        h+=`<div class="ex"><div class="a"><span>${esc(n)}</span><span><b>${days.size}</b>日・<b>${sets(a)}</b>セット</span></div><div class="b"><div class="dots">${dots}</div><span>${esc(fmtSet(last))}</span></div></div>`})});
+        h+=`<div class="ex"><div class="a"><span>${esc(n)}</span><span><b>${days.size}</b>日・<b>${sets(a)}</b>セット</span></div><div class="b"><div class="dotsw"><div class="dots">${dots}</div><div class="dlab">${[1,10,20,nd].map(d=>`<i style="left:${((d-0.5)/nd*100).toFixed(2)}%">${d}</i>`).join("")}</div></div><span>${esc(fmtSet(last))}</span></div></div>`})});
     h+=`</div>`}
 
   /* run summary */
