@@ -129,6 +129,7 @@ const stepOf=(n,w)=>{const m=findM(n);const st_=m&&m.step?m.step:(n&&/ダンベ�
 const MSTEP=5,TARGET=15;
 const RIR=[{v:3,e:"😌",l:"余裕",d:"あと3回以上"},{v:1,e:"😤",l:"ギリギリ",d:"あと1〜2回"},{v:0,e:"🔥",l:"限界",d:"あと0回"}];
 const rirOf=v=>RIR.find(x=>x.v===v);
+const RIR_REST={3:90,1:120,0:150};
 function rirPicker(attr,i,cur){return `<div class="rir">${RIR.map(x=>`<button ${attr}="rir" data-i="${i}" data-v="${x.v}" class="${cur===x.v?"on":""}"><span>${x.e} ${x.l}</span><small>${x.d}</small></button>`).join("")}</div>`}
 function rirText(x){const sl=setsOf(x);if(!sl||!sl.some(s=>s.rir!=null))return"";return sl.map(s=>s.rir!=null?rirOf(s.rir).e:"・").join("")}
 function rirWords(x){const sl=setsOf(x);if(!sl||!sl.some(s=>s.rir!=null))return"";return "きつさ："+sl.map((s,i)=>`${i+1}セット目${s.rir!=null?rirOf(s.rir).l+"（"+rirOf(s.rir).d+"）":"未入力"}`).join("、")}
@@ -266,7 +267,9 @@ $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");
       menuSt[m.name]={sets:Array.from({length:n},(_,i)=>({w:lw(i),r:tgt})),memo:""}}
     renderMenu();return}
   const o=menuSt[m.name];if(!o)return;
-  if(a==="rir"){const s=o.sets[i];const v=+b.dataset.v;s.rir=s.rir===v?null:v;renderMenu();return}
+  if(a==="rir"){const s=o.sets[i];const v=+b.dataset.v;s.rir=s.rir===v?null:v;renderMenu();
+    if(s.rir!=null&&tEnd){const len=RIR_REST[s.rir];tCur=len;tNote=`${rirOf(s.rir).l}→${len}秒`;tEnd=tStart+len*1000;renderTimer()}
+    return}
   if(a==="done"){sessMark();const s=o.sets[i];s.done=!s.done;if(!s.done)delete s.rir;renderMenu();
     if(s.done){const left=o.sets.some(x=>!x.done)||curMenu().some(x=>menuSt[x.name]&&menuSt[x.name].sets.some(y=>!y.done));if(left)startTimer()}return}
   if(a==="fit"){const p=nextPlan(m);o.sets.forEach(x=>{if(!x.done)x.w=p.w});renderMenu();return}
@@ -359,7 +362,17 @@ function bodySvg(v){/* v: part -> 0..1 */
     <text x="50" y="234" fill="#7d7f88" font-size="7" text-anchor="middle" font-family="Jost" letter-spacing="2">${label}</text></g>`;
   return `<svg viewBox="0 0 205 238" xmlns="http://www.w3.org/2000/svg">${fig(FRONT,0,"FRONT")}${fig(BACK,105,"BACK")}</svg>`}
 
-function renderMonth(){const y=st.y,m=st.m,key=mkey(y,m);
+function renderWeek(){const el=$("weekBox");if(!el)return;const now=new Date();const dow=(now.getDay()+6)%7;
+  const mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow);const days=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);days.push(ymd(d))}
+  const sdays=new Set(entries.filter(x=>x.type==="strength").map(x=>x.date));
+  const done=days.filter(d=>sdays.has(d)).length,GOAL=2;
+  const last=[...sdays].filter(d=>d<=ymd(now)).sort().pop();
+  const since=last?Math.round((new Date(ymd(now)+"T00:00")-new Date(last+"T00:00"))/86400000):null;
+  const wd="月火水木金土日";
+  el.innerHTML=`<div class="wk-h"><span>THIS WEEK — 今週の筋トレ</span><b>${done}<i>/${GOAL}回</i></b></div>
+    <div class="wk-d">${days.map((d,i)=>`<div class="${sdays.has(d)?"on":""} ${d===ymd(now)?"td":""}"><i>${sdays.has(d)?"🏋️":""}</i><span>${wd[i]}</span></div>`).join("")}</div>
+    <div class="wk-f">${done>=GOAL?"今週の目標達成 ✓":`あと${GOAL-done}回`}${since!=null?`　・　${since===0?"今日やりました":`前回から${since}日`}`:""}</div>`}
+function renderMonth(){renderWeek();const y=st.y,m=st.m,key=mkey(y,m);
   $("mNum").textContent=m+1;$("mName").textContent=MONTHS[m]+" "+y;
   const pm=m===0?11:m-1,py=m===0?y-1:y,pkey=mkey(py,pm);
   const inM=entries.filter(x=>x.date&&x.date.startsWith(key));
@@ -528,9 +541,10 @@ function fmtT(sec){sec=Math.max(0,Math.ceil(sec));return Math.floor(sec/60)+":"+
 function renderTimer(){const el=$("timer");if(!tEnd&&!tDone){el.classList.add("hidden");return}
   el.classList.remove("hidden");const left=(tEnd-Date.now())/1000;
   el.classList.toggle("done",tDone);
-  $("tTime").textContent=tDone?"0:00":fmtT(left);$("tLabel").textContent=tDone?"休憩終了！次のセットへ":"休憩中";
-  $("tBar").style.width=tDone?"100%":Math.min(100,(1-left/tLen)*100)+"%"}
-function startTimer(len){unlockAudio();alarmOff();$("timer").classList.remove("soon");if(len)tLen=len;tEnd=Date.now()+tLen*1000;tDone=false;keepAwake(true);
+  $("tTime").textContent=tDone?"0:00":fmtT(left);$("tLabel").textContent=tDone?"休憩終了！次のセットへ":"休憩中"+(tNote?`（${tNote}）`:"");
+  $("tBar").style.width=tDone?"100%":Math.min(100,(1-left/tCur)*100)+"%"}
+let tCur=90,tStart=0,tNote="";
+function startTimer(len,note){unlockAudio();alarmOff();$("timer").classList.remove("soon");tCur=len||tLen;tNote=note||"";tStart=Date.now();tEnd=tStart+tCur*1000;tDone=false;keepAwake(true);
   clearInterval(tTick);tTick=setInterval(tick,250);renderTimer();renderRestChips()}
 let lastTickSec=-1,alarmIv=null;
 function tone(f,d,v){if(!actx)return;const o=actx.createOscillator(),g=actx.createGain();o.type="square";o.frequency.value=f;o.connect(g);g.connect(actx.destination);
@@ -554,7 +568,7 @@ $("restSeg").onclick=e=>{const b=e.target.closest("button");if(!b)return;
 $("timer").onclick=e=>{const b=e.target.closest("button");if(!b)return;
   if(b.dataset.t==="stop"){stopTimer();return}
   if(tDone){startTimer();return}
-  tEnd+=(+b.dataset.t)*1000;tLen=Math.max(10,tLen+(+b.dataset.t));renderTimer()};
+  tEnd+=(+b.dataset.t)*1000;tCur=Math.max(10,tCur+(+b.dataset.t));renderTimer()};
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){tick();if(tEnd)keepAwake(true)}});
 $("tOver").onclick=e=>{const b=e.target.closest("[data-o]");
   if(b&&b.dataset.o==="again"){startTimer();return}
