@@ -163,6 +163,12 @@ small.lbl{display:block;color:var(--mu);font-size:11px;margin:14px 0 6px}
 #tOver .btn.ghost{background:none;color:#fff;border:1px solid rgba(255,255,255,.6)}
 @keyframes flash{from{background:#1b5e20}to{background:#43a047}}
 .qk .chip{min-height:36px;padding:7px 13px;font-size:13px}
+.topbar{display:flex;justify-content:flex-end;margin-bottom:-6px}
+.gear{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:none;font-size:18px;filter:grayscale(1);opacity:.85}
+.sethead{display:flex;align-items:center;justify-content:space-between;margin:2px 0 6px}
+.sethead b{font-size:16px}.sethead span{width:70px}
+.back{background:none;border:none;color:var(--tx);font-size:15px;padding:8px 0;width:70px;text-align:left}
+#v-settings{padding-bottom:calc(env(safe-area-inset-bottom) + 90px)}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);z-index:20;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
 #toast.on{opacity:1}
 </style>
@@ -242,16 +248,20 @@ small.lbl{display:block;color:var(--mu);font-size:11px;margin:14px 0 6px}
 </main>
 
 <main id="v-month" class="hidden">
+  <div class="topbar"><button class="gear" id="gear" aria-label="設定">⚙️</button></div>
   <div class="mhead">
     <div class="mbig" id="mNum"></div>
     <div class="mname" id="mName"></div>
     <div class="mnav"><button id="prevM">‹</button><button id="nextM">›</button></div>
   </div>
   <div id="monthBody"></div>
-  <div class="sec">
+</main>
+<main id="v-settings" class="hidden">
+  <div class="sethead"><button class="back" id="setBack">‹ ホーム</button><b>設定</b><span></span></div>
+  <div class="sec" style="margin-top:22px">
     <div class="sech"><span>ASK CLAUDE — 相談</span></div>
     <button class="btn ghost" id="consult">Claudeに相談用にコピー（直近6週間）</button>
-    <div class="hint">記録とメモを文章にしてコピーします。Claudeのチャットに貼り付けて相談できます。</div>
+    <div class="hint">記録とメモを文章にしてコピーします。Claudeのチャットに貼り付けて相談できます。SupabaseをつないだClaudeなら「記録見て」と頼むだけでも読めます。</div>
   </div>
   <div class="sec">
     <div class="sech"><span>BACKUP — バックアップ</span></div>
@@ -259,9 +269,13 @@ small.lbl{display:block;color:var(--mu);font-size:11px;margin:14px 0 6px}
     <button class="btn ghost" id="csvDl" style="margin-top:10px">CSVファイルを保存</button>
     <div class="hint">コピーしたものはメモやNotionに貼り付けて保管できます。</div>
     <textarea id="csvBox" class="hidden" readonly></textarea>
+  </div>
+  <div class="sec">
+    <div class="sech"><span>ACCOUNT — アカウント</span></div>
     <div class="acct"><span id="who"></span><button id="logout">ログアウト</button></div>
   </div>
 </main>
+
 <nav id="nav" class="hidden">
   <button class="tab" data-v="month"><b>🏠</b>ホーム</button>
   <button class="tab" data-v="log"><b>✏️</b>記録</button>

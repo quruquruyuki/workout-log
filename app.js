@@ -138,12 +138,15 @@ function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clear
 function setStatus(t){const s=$("status");if(t){s.textContent=t;s.classList.remove("hidden")}else s.classList.add("hidden")}
 
 /* ---------- routing ---------- */
-function route(){if(!session)return;const v=location.hash==="#log"?"log":"month";
+function route(){if(!session)return;const v=location.hash==="#log"?"log":location.hash==="#settings"?"settings":"month";
+  $("v-settings").classList.toggle("hidden",v!=="settings");
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
   $("v-log").classList.toggle("hidden",v!=="log");$("saveBar").classList.toggle("hidden",v!=="log");$("v-month").classList.toggle("hidden",v!=="month");
   if(v==="month")renderMonth();window.scrollTo(0,0)}
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{location.hash=b.dataset.v});
 window.addEventListener("hashchange",route);
+$("gear").onclick=()=>{location.hash="settings"};
+$("setBack").onclick=()=>{location.hash="month"};
 
 /* ---------- log form ---------- */
 $("date").value=ymd(today);
@@ -505,7 +508,7 @@ let signUpMode = false;
 function showApp(on) {
   $("auth").classList.toggle("hidden", on);
   $("nav").classList.toggle("hidden", !on);
-  if (on) route(); else { $("v-log").classList.add("hidden"); $("v-month").classList.add("hidden"); $("saveBar").classList.add("hidden"); }
+  if (on) route(); else { $("v-log").classList.add("hidden"); $("v-month").classList.add("hidden"); $("v-settings").classList.add("hidden"); $("saveBar").classList.add("hidden"); }
 }
 $("authSwitch").onclick = () => {
   signUpMode = !signUpMode;
