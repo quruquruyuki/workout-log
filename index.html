@@ -222,6 +222,11 @@ a.btn{display:block;text-align:center;text-decoration:none;box-sizing:border-box
 .wk-d div span{font-size:10px;color:var(--mu)}
 .wk-d div.on{background:rgba(255,255,255,.1)}.wk-d div.td{box-shadow:inset 0 0 0 1px var(--tx)}
 .wk-f{margin-top:8px;font-size:12px;color:var(--mu)}
+.tgl{display:flex;align-items:center;gap:12px;margin-top:12px;font-size:14px}
+.tgl>span{flex:1}.tgl small{display:block;font-size:11px;color:var(--mu);margin-top:3px;line-height:1.5}
+.tgl input{display:none}.tgl i{flex:0 0 46px;height:28px;border-radius:14px;background:var(--line);position:relative;transition:.2s}
+.tgl i::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s}
+.tgl input:checked+i{background:#43a047}.tgl input:checked+i::after{left:21px}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);z-index:20;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
 #toast.on{opacity:1}
 </style>
@@ -322,6 +327,10 @@ a.btn{display:block;text-align:center;text-decoration:none;box-sizing:border-box
     <div class="hint">変えたいときは、使いたいチャットのURL（claude.ai/chat/… や claude.ai/code/…）を貼り付けてください。空にすると毎回新しいチャットになります。</div>
     <button class="btn ghost" id="consult" style="margin-top:14px">記録を文章でコピー（直近6週間）</button>
     <div class="hint">Supabaseとつないでいないチャットで相談するときは、こちらをコピーして貼り付けてください。</div>
+  </div>
+  <div class="sec">
+    <div class="sech"><span>DISPLAY — 表示</span></div>
+    <label class="tgl"><span>フォームの注意点を常に表示<small>オフのときは、各種目10回まで・重さを上げる日・3週間以上ぶり・前回メモに違和感があるときだけ表示</small></span><input type="checkbox" id="tipsAlways"><i></i></label>
   </div>
   <div class="sec">
     <div class="sech"><span>BACKUP — バックアップ</span></div>

@@ -240,7 +240,12 @@ function tipsFor(m,p){const out=[];const l=lastOf(m.name);const sl=l&&setsOf(l);
   if(p.up)out.push({k:"up",t:"⬆ 今日は上げる日。上げた直後は10〜12回で終わっても正常、フォームが崩れなければ成功"});
   if(sl&&sl.length>=2&&!m.bw){const ws=sl.map(x=>x.w??0),mx=Math.max(...ws);
     if(ws[ws.length-1]<mx)out.push({k:"warn",t:`💪 前回は最後のセットだけ軽くしていました。今日は${sl.length}セットとも${mx}kgで粘る（10〜12回でOK）`})}
-  const tp=TIPS[m.name];if(tp&&tp.length){const n=entries.filter(x=>x.exercise===m.name).length;out.push({k:"std",t:"✓ "+tp[n%tp.length]})}
+  const tp=TIPS[m.name];if(tp&&tp.length){const n=entries.filter(x=>x.exercise===m.name).length;
+    let always=false;try{always=localStorage.getItem("wl_tips_always")==="1"}catch(_){}
+    const gap=l?Math.round((new Date(ymd(new Date())+"T00:00")-new Date(l.date+"T00:00"))/86400000):0;
+    const worry=l&&l.memo&&/痛|違和感|反る|反っ|しびれ|痺れ|張り|ズキ|不安/.test(l.memo);
+    const why=always||n<10?"":p.up?"（重さを上げる日なので）":gap>=21?`（${gap}日ぶりなので）`:worry?"（前回のメモが気になるので）":null;
+    if(why!==null)out.push({k:"std",t:"✓ "+tp[n%tp.length]+why})}
   return out}
 function renderMenu(){
   $("menuHint").textContent=st.type==="db"?"重さはダンベル1個あたりで入力。":"";
@@ -599,6 +604,8 @@ $("askApp").addEventListener("click",async e=>{const u=askUrl(),q=askPrompt();
   if(!u){$("askApp").href="https://claude.ai/new?q="+encodeURIComponent(q);return}
   $("askApp").href=u;
   try{await navigator.clipboard.writeText(q);toast("相談文をコピーしました。貼り付けて送信してください")}catch(_){}});
+try{$("tipsAlways").checked=localStorage.getItem("wl_tips_always")==="1"}catch(_){}
+$("tipsAlways").onchange=()=>{try{localStorage.setItem("wl_tips_always",$("tipsAlways").checked?"1":"0")}catch(_){}renderMenu();toast($("tipsAlways").checked?"注意点を毎回表示します":"慣れた種目の注意点は自動で隠します")};
 $("consult").onclick=async()=>{const t=buildConsult();
   try{await navigator.clipboard.writeText(t);toast("コピーしました。Claudeに貼り付けてください")}
   catch(_){const b=$("csvBox");b.value=t;b.classList.remove("hidden");b.select();toast("下の欄から全選択してコピーしてください")}};
