@@ -173,6 +173,13 @@ small.lbl{display:block;color:var(--mu);font-size:11px;margin:14px 0 6px}
 .cal>div.today .d{display:inline-block;min-width:22px;padding:2px 6px;border-radius:999px;background:var(--tx);color:var(--bg);font-weight:500}
 .cal>div.today::after{content:"TODAY";position:absolute;left:0;right:0;bottom:3px;font-family:"Jost";font-size:7px;letter-spacing:.15em;color:var(--tx)}
 a.btn{display:block;text-align:center;text-decoration:none;box-sizing:border-box}
+.tgt{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:62px;padding:6px 8px;border-radius:12px;border:1px solid var(--line);line-height:1}
+.tgt small{font-size:9px;color:var(--mu);letter-spacing:.1em}
+.tgt b{font-family:"Jost";font-weight:500;font-size:24px;margin-top:3px}
+.tgt i{font-style:normal;font-size:10px;color:var(--mu);margin-top:1px}
+.tgt em{font-style:normal;font-size:9px;font-weight:700;color:#a5d6a7;margin-top:3px}
+.tgt.up{border-color:#43a047;background:rgba(67,160,71,.12)}.tgt.up b{color:#c8e6c9}
+.ad.fit{border-style:solid;border-color:#43a047;color:#a5d6a7}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);z-index:20;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
 #toast.on{opacity:1}
 </style>

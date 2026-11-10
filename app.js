@@ -224,10 +224,11 @@ function renderMenu(){
       `<div class="stp"><button data-a="w-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="decimal" data-f="w" data-m="${m.name}" data-i="${i}" value="${s.w??""}" placeholder="kg"><span class="unit" style="align-self:center">kg</span><button data-a="w+" data-m="${m.name}" data-i="${i}">＋</button></div>`}
       <div class="stp"><button data-a="r-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="numeric" data-f="r" data-m="${m.name}" data-i="${i}" value="${s.r??""}"><span class="unit" style="align-self:center">${m.sec?"秒":"回"}</span><button data-a="r+" data-m="${m.name}" data-i="${i}">＋</button></div>
       <button class="rm" data-a="rm" data-m="${m.name}" data-i="${i}">×</button></div>`).join("")}
+      ${p.w!=null&&on.sets.some(x=>!x.done&&x.w!==p.w)?`<button class="ad fit" data-a="fit" data-m="${m.name}">残りのセットを目標の ${p.w}kg にそろえる</button>`:""}
       <button class="ad" data-a="add" data-m="${m.name}">＋ セットを追加</button>
       <input class="memo" data-f="memo" data-m="${m.name}" placeholder="メモ（フォーム・違和感など）" value="${esc(on.memo||"")}"></div>`}
     return `<div class="mc ${on?"on":""}"><button class="mch" data-a="tg" data-m="${m.name}"><span class="ck">${on?"✓":""}</span><span style="flex:1;min-width:0">
-      <div class="nm">${m.name}<small>${m.part}${m.uni?"・"+uniLabel(m):""}</small></div><div class="pv">${pv}</div><div class="nx ${p.up?"up":""}">次回の目安：${esc(p.label)}</div></span></button>${body}</div>`}).join("");
+      <div class="nm">${m.name}<small>${m.part}${m.uni?"・"+uniLabel(m):""}</small></div><div class="pv">${pv}</div><div class="nx ${p.up?"up":""}">次回の目安：${esc(p.label)}</div></span>${p.w!=null?`<span class="tgt ${p.up?"up":""}"><small>目標</small><b>${p.w}</b><i>kg</i>${p.up?`<em>▲UP</em>`:""}</span>`:""}</button>${body}</div>`}).join("");
   updateSave()}
 $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;
   const m=findM(b.dataset.m),a=b.dataset.a,i=+b.dataset.i;
@@ -240,6 +241,7 @@ $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");
   const o=menuSt[m.name];if(!o)return;
   if(a==="done"){const s=o.sets[i];s.done=!s.done;renderMenu();
     if(s.done){const left=o.sets.some(x=>!x.done)||curMenu().some(x=>menuSt[x.name]&&menuSt[x.name].sets.some(y=>!y.done));if(left)startTimer()}return}
+  if(a==="fit"){const p=nextPlan(m);o.sets.forEach(x=>{if(!x.done)x.w=p.w});renderMenu();return}
   if(a==="add"){const last=o.sets[o.sets.length-1]||{w:null,r:m.target||TARGET};o.sets.push({w:last.w,r:last.r})}
   else if(a==="rm"){o.sets.splice(i,1);if(!o.sets.length)delete menuSt[m.name]}
   else{const s=o.sets[i];const d=a.endsWith("+")?1:-1;
