@@ -133,13 +133,19 @@ function sessMark(){const d=ymd(new Date());const s=sessGet();
   if(s&&s.d===d){if(s.end){delete s.end;try{localStorage.setItem("wl_sess",JSON.stringify(s))}catch(_){}renderElapsed()}return}
   try{localStorage.setItem("wl_sess",JSON.stringify({d,t:new Date().toISOString()}))}catch(_){}renderElapsed()}
 function sessStart(date){const s=sessGet();return s&&s.d===date?s.t:null}
+const BUDGET=30;
 function renderElapsed(){const el=document.getElementById("elapsed");if(!el)return;const s=sessGet();
   if(!s||s.d!==ymd(new Date())){el.classList.add("hidden");return}
-  const m=Math.floor(((s.end?new Date(s.end):Date.now())-new Date(s.t))/60000);el.classList.remove("hidden");
-  if(s.end){el.innerHTML=`⏱ 今日のトレーニング <b>${m}</b>分${m>30?'<i>（30分オーバー）</i>':""}<button id="sessReset">リセット</button>`;el.classList.toggle("over",m>30);return}
-  el.innerHTML=`⏱ 開始から <b>${m}</b>分${m>=30?'<i>（30分を超えました）</i>':""}<button id="sessReset">リセット</button>`;
-  el.classList.toggle("over",m>=30)}
-setInterval(renderElapsed,30000);
+  const sec=Math.max(0,Math.floor(((s.end?new Date(s.end):Date.now())-new Date(s.t))/1000));
+  const m=Math.floor(sec/60),ss=sec%60,pct=Math.min(100,sec/(BUDGET*60)*100);
+  const lv=m>=BUDGET?"over":m>=BUDGET-5?"near":"ok";
+  el.classList.remove("hidden");el.className="elapsed "+lv+(s.end?" fin":"");
+  const left=BUDGET-m;
+  el.innerHTML=`<div class="et"><span>${s.end?"今日のトレーニング":"トレーニング中"}</span><button id="sessReset">リセット</button></div>
+    <div class="em"><b>${m}<small>:${pad(ss)}</small></b><span>${s.end?(m>BUDGET?`目標より${m-BUDGET}分オーバー`:`目標${BUDGET}分以内 ✓`):(lv==="over"?`目標の${BUDGET}分を${m-BUDGET}分オーバー`:`残り約${left}分`)}</span></div>
+    <div class="eb"><i style="width:${pct}%"></i><s style="left:${(BUDGET-5)/BUDGET*100}%"></s></div>
+    <div class="el"><span>0</span><span>${BUDGET}分</span></div>`}
+setInterval(()=>{const s=sessGet();if(s&&!s.end)renderElapsed()},1000);
 function dayMinutes(list){const st=list.map(x=>x.started_at).filter(Boolean).map(v=>+new Date(v));
   const en=list.filter(x=>x.type==="strength").map(x=>+new Date(x.ts)).filter(v=>!isNaN(v));
   if(!st.length||!en.length)return null;const m=Math.round((Math.max(...en)-Math.min(...st))/60000);return m>0&&m<240?m:null}
@@ -391,6 +397,17 @@ function renderMonth(){const y=st.y,m=st.m,key=mkey(y,m);
         let dots="";for(let d=1;d<=nd;d++)dots+=`<i class="${days.has(d)?"on":""}"></i>`;
         h+=`<div class="ex" data-ex="${esc(n)}"><div class="a"><span>${esc(n)} <em class="chv">›</em></span><span><b>${days.size}</b>日・<b>${sets(a)}</b>セット</span></div><div class="b"><div class="dotsw"><div class="dots">${dots}</div><div class="dlab">${[1,10,20,nd].map(d=>`<i style="left:${((d-0.5)/nd*100).toFixed(2)}%">${d}</i>`).join("")}</div></div><span>${esc(fmtSet(last))}</span></div></div>`})});
     h+=`</div>`}
+
+  /* time trend */
+  {const days=[...new Set(entries.filter(x=>x.type==="strength"&&x.started_at).map(x=>x.date))].sort().slice(-12);
+   const data=days.map(d=>({d,m:dayMinutes(entries.filter(x=>x.date===d))})).filter(x=>x.m);
+   h+=`<div class="sec"><div class="sech"><span>TIME — トレーニング時間</span><span>直近${data.length}回</span></div>`;
+   if(!data.length)h+=`<div class="empty">メニューから記録すると、ここに毎回の時間の推移が出ます</div>`;
+   else{const mx=Math.max(BUDGET+10,...data.map(x=>x.m));const avg=Math.round(data.reduce((a,b)=>a+b.m,0)/data.length);
+     const inb=data.filter(x=>x.m<=BUDGET).length;
+     h+=`<div class="stats"><div><b>${data[data.length-1].m}<i>分</i></b><span>前回</span></div><div><b>${avg}<i>分</i></b><span>平均</span></div><div><b>${inb}/${data.length}</b><span>${BUDGET}分以内</span></div></div>
+     <div class="tbars"><s style="bottom:calc(18px + (100% - 18px) * ${(BUDGET/mx).toFixed(3)})"><em>${BUDGET}分</em></s>${data.map(x=>`<div><i class="${x.m>BUDGET?"o":""}" style="height:${x.m/mx*100}%"><b>${x.m}</b></i><span>${x.d.slice(5).replace("-","/")}</span></div>`).join("")}</div>`}
+   h+=`</div>`}
 
   /* run summary */
   h+=`<div class="sec"><div class="sech"><span>RUN — ラン</span></div>`;
