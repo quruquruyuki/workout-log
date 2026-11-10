@@ -226,12 +226,19 @@ function nextPlan(m){const l=lastOf(m.name);const sl=l&&setsOf(l);
   if(allTop){let nw=mx+(m.step||MSTEP);let note="";if(m.max&&nw>m.max){nw=m.max;note="（マシン上限）"}
     return nw>mx?{w:nw,n:3,label:`上げどき → ${nw}kg`,up:true,base:l}:{w:mx,n:3,label:`上限${mx}kg。下ろすのに3秒かけて負荷アップ`,up:false,base:l}}
   return{w:mx,n:3,label:`${mx}kgで${tgt}回×3を目指す`,up:false,base:l}}
+function tipsFor(m,p){const out=[];const l=lastOf(m.name);const sl=l&&setsOf(l);
+  if(l&&l.memo)out.push({k:"memo",t:`📝 前回のメモ：${l.memo}`});
+  if(p.up)out.push({k:"up",t:"⬆ 今日は上げる日。上げた直後は10〜12回で終わっても正常、フォームが崩れなければ成功"});
+  if(sl&&sl.length>=2&&!m.bw){const ws=sl.map(x=>x.w??0),mx=Math.max(...ws);
+    if(ws[ws.length-1]<mx)out.push({k:"warn",t:`💪 前回は最後のセットだけ軽くしていました。今日は${sl.length}セットとも${mx}kgで粘る（10〜12回でOK）`})}
+  const tp=TIPS[m.name];if(tp&&tp.length){const n=entries.filter(x=>x.exercise===m.name).length;out.push({k:"std",t:"✓ "+tp[n%tp.length]})}
+  return out}
 function renderMenu(){
   $("menuHint").textContent=st.type==="db"?"重さはダンベル1個あたりで入力。":"";
   $("menuList").innerHTML=curMenu().map(m=>{const p=nextPlan(m),on=menuSt[m.name];const l=p.base;
     const pv=l?`前回 ${l.date.slice(5).replace("-","/")}：${esc(fmtSet(l))}${l.memo?"（"+esc(l.memo)+"）":""}`:"まだ記録なし";
     let body="";
-    if(on){const tp=TIPS[m.name];body=`<div class="mb">${tp?`<ul class="tips">${tp.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>`:""}${on.sets.map((s,i)=>`<div class="srow"><button class="no ${s.done?"dn":""}" data-a="done" data-m="${m.name}" data-i="${i}">${s.done?"✓":i+1}</button>
+    if(on){const tl=tipsFor(m,p);body=`<div class="mb">${tl.length?`<ul class="tips">${tl.map(t=>`<li class="${t.k}">${esc(t.t)}</li>`).join("")}</ul>`:""}${on.sets.map((s,i)=>`<div class="srow"><button class="no ${s.done?"dn":""}" data-a="done" data-m="${m.name}" data-i="${i}">${s.done?"✓":i+1}</button>
       ${m.bw?`<div class="stp" style="flex:0 0 74px;justify-content:center;align-items:center;color:var(--mu);font-size:13px">自重</div>`:
       `<div class="stp"><button data-a="w-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="decimal" data-f="w" data-m="${m.name}" data-i="${i}" value="${s.w??""}" placeholder="kg"><span class="unit" style="align-self:center">kg</span><button data-a="w+" data-m="${m.name}" data-i="${i}">＋</button></div>`}
       <div class="stp"><button data-a="r-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="numeric" data-f="r" data-m="${m.name}" data-i="${i}" value="${s.r??""}"><span class="unit" style="align-self:center">${m.sec?"秒":"回"}</span><button data-a="r+" data-m="${m.name}" data-i="${i}">＋</button></div>
