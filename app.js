@@ -144,7 +144,7 @@ function renderElapsed(){const el=document.getElementById("elapsed");if(!el)retu
   const sec=Math.max(0,Math.floor(((s.end?new Date(s.end):Date.now())-new Date(s.t))/1000));
   const m=Math.floor(sec/60),ss=sec%60;
   el.className="elapsed"+(s.end?" fin":"");
-  el.innerHTML=`<div class="et"><span>${s.end?"今日のトレーニング":"トレーニング中"}</span><button id="sessReset">リセット</button></div>
+  el.innerHTML=`<div class="et"><span>${s.end?"今日のトレーニング":'<em class="rec"></em>トレーニング中'}</span><button id="sessReset">リセット</button></div>
     <div class="em"><b>${m}<small>:${pad(ss)}</small></b><span>${s.end?"おつかれさまでした":""}</span></div>`}
 setInterval(()=>{const s=sessGet();if(s&&!s.end)renderElapsed()},1000);
 function dayMinutes(list){const st=list.map(x=>x.started_at).filter(Boolean).map(v=>+new Date(v));

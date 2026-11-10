@@ -227,6 +227,11 @@ a.btn{display:block;text-align:center;text-decoration:none;box-sizing:border-box
 .tgl input{display:none}.tgl i{flex:0 0 46px;height:28px;border-radius:14px;background:var(--line);position:relative;transition:.2s}
 .tgl i::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s}
 .tgl input:checked+i{background:#43a047}.tgl input:checked+i::after{left:21px}
+.elapsed:not(.fin){animation:recglow 2s ease-in-out infinite}
+@keyframes recglow{0%,100%{border-color:#3a3c43;box-shadow:0 6px 18px rgba(0,0,0,.4)}50%{border-color:rgba(239,83,80,.75);box-shadow:0 6px 18px rgba(0,0,0,.4),0 0 0 3px rgba(239,83,80,.12)}}
+.rec{display:inline-block;width:9px;height:9px;border-radius:50%;background:#ef5350;margin-right:7px;vertical-align:1px;animation:recblink 1s steps(1,end) infinite;box-shadow:0 0 6px rgba(239,83,80,.8)}
+@keyframes recblink{50%{opacity:.15}}
+.elapsed .et span{display:flex;align-items:center;color:#e8e8eb;font-weight:500;letter-spacing:.05em}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);z-index:20;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
 #toast.on{opacity:1}
 </style>
