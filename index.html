@@ -180,6 +180,18 @@ a.btn{display:block;text-align:center;text-decoration:none;box-sizing:border-box
 .tgt em{font-style:normal;font-size:9px;font-weight:700;color:#a5d6a7;margin-top:3px}
 .tgt.up{border-color:#43a047;background:rgba(67,160,71,.12)}.tgt.up b{color:#c8e6c9}
 .ad.fit{border-style:solid;border-color:#43a047;color:#a5d6a7}
+.tips{margin:0 0 6px;padding:10px 12px 10px 26px;background:rgba(255,255,255,.04);border-radius:10px;font-size:12px;color:#c9cbd1;line-height:1.6}
+.elapsed{margin-top:12px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;font-size:13px;color:var(--mu);display:flex;align-items:center;gap:6px}
+.elapsed b{font-family:"Jost";font-size:20px;color:var(--tx);font-weight:500}
+.elapsed i{font-style:normal;font-size:11px;color:#ffb74d}
+.elapsed.over{border-color:#6b5a3a}
+.elapsed button{margin-left:auto;background:none;border:1px solid var(--line);color:var(--mu);border-radius:8px;padding:5px 9px;font-size:11px}
+.ex[data-ex]{cursor:pointer}.chv{font-style:normal;color:var(--mu)}
+#chartSheet{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
+#chartSheet .sheet{width:100%;max-width:560px;max-height:88vh;overflow:auto;background:var(--panel);border-radius:18px 18px 0 0;border:1px solid var(--line);padding:16px 16px calc(env(safe-area-inset-bottom) + 20px)}
+#chartSheet .shh{display:flex;align-items:center;justify-content:space-between;font-size:16px}
+#chartSheet .x{background:none;border:none;color:var(--mu);font-size:18px;width:40px;height:40px}
+.chart{width:100%;height:auto;display:block;margin-top:6px}.chart text{fill:#7d7f88;font-size:9px;font-family:"Jost",sans-serif}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);z-index:20;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
 #toast.on{opacity:1}
 </style>
@@ -215,6 +227,7 @@ a.btn{display:block;text-align:center;text-decoration:none;box-sizing:border-box
 
   <div id="fMenu">
     <div class="hint" style="margin-top:12px">やる種目をタップすると、前回の記録と次回の目安からセットが入ります。実際の回数に直して「記録する」。</div>
+    <div id="elapsed" class="elapsed hidden"></div>
     <div class="restbox"><small class="lbl" style="margin:0 0 6px">⏱ セット間の休憩</small><div class="seg" id="restSeg"></div>
       <div class="hint" style="margin-top:6px">セット番号をタップして ✓ にすると、自動で休憩タイマーが始まります。</div></div>
     <div class="hint" id="menuHint"></div>
@@ -305,6 +318,7 @@ a.btn{display:block;text-align:center;text-decoration:none;box-sizing:border-box
   <button class="btn" data-o="ok">OK（タップで閉じる）</button>
   <button class="btn ghost" data-o="again" style="margin-top:10px">もう一度休憩</button>
 </div></div>
+<div id="chartSheet" class="hidden"><div class="sheet" id="chartBody"></div></div>
 <div id="sheet" class="hidden"><div class="sheet" id="sheetBody"></div></div>
 <div id="toast"></div>
 

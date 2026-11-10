@@ -13,9 +13,9 @@ const lsKey = k => "wl_" + k + "_" + (session?.user?.id || "anon");
 const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(lsKey(k))) ?? d } catch (_) { return d } };
 const lsSet = (k, v) => { try { localStorage.setItem(lsKey(k), JSON.stringify(v)) } catch (_) {} };
 
-const fromRow = r => ({ set_list: r.set_list || null, unilateral: !!r.unilateral, id: r.id, date: r.date, type: r.type, part: r.part, exercise: r.exercise, weight: r.weight,
+const fromRow = r => ({ started_at: r.started_at || null, set_list: r.set_list || null, unilateral: !!r.unilateral, id: r.id, date: r.date, type: r.type, part: r.part, exercise: r.exercise, weight: r.weight,
   reps: r.reps, sets: r.sets, min: r.minutes, km: r.km, place: r.place, memo: r.memo, ts: r.created_at || "" });
-const toRow = x => ({ set_list: x.set_list ?? null, unilateral: !!x.unilateral, id: x.id, date: x.date, type: x.type, part: x.part ?? null, exercise: x.exercise ?? null,
+const toRow = x => ({ started_at: x.started_at ?? null, set_list: x.set_list ?? null, unilateral: !!x.unilateral, id: x.id, date: x.date, type: x.type, part: x.part ?? null, exercise: x.exercise ?? null,
   weight: x.weight ?? null, reps: x.reps ?? null, sets: x.sets ?? null, minutes: x.min ?? null, km: x.km ?? null,
   place: x.place ?? null, memo: x.memo ?? null, created_at: x.ts });
 
@@ -32,7 +32,7 @@ function uuid() {
   return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 }
 function addEntry(data) {
-  const row = { ...data, id: uuid(), ts: new Date().toISOString() };
+  const row = { started_at: sessStart(data.date), ...data, id: uuid(), ts: new Date().toISOString() };
   pending.push({ op: "ins", row }); recompute(); flush();
 }
 function updateEntry(id, patch) {
@@ -119,6 +119,7 @@ const MENUS={machine:[
   {name:"ダンベルカール",part:"腕",step:1,uni:"片手"},
   {name:"フレンチプレス",part:"腕",step:1}
 ]};
+const TIPS={"ショルダープレス": ["グリップが肩の高さかやや下に来るようにシートを調整", "腰と背もたれの間にすき間ができたら、そのセットは中止", "肩を下げたまま押し、肘は伸ばしきらない"], "チェストプレス": ["肩甲骨を寄せて胸を張ったまま押す", "グリップは胸の中央の高さ", "戻すときは2〜3秒かけてゆっくり"], "ラットプルダウン": ["セット前に肩甲骨を下げる動きを10回", "手は軽く握り、肘を腰のポケットに下ろすイメージ", "一番下で1秒止めて、脇の下に効いていればOK"], "アブベンチ": ["足をパッドに引っかけない", "肩甲骨が浮くところ（30〜45度）まで", "腰をパッドに押しつけたまま、息を吐きながら丸める"], "レッグプレス": ["膝が内側に入らないように", "膝は伸ばしきらない", "上限に達したら、下ろすのに3秒かける"], "プランク": ["頭からかかとまで一直線", "お尻が下がって腰が反るのはNG", "呼吸は止めない"], "サイドレイズ": ["肘を軽く曲げ、肩の高さまで", "肩をすくめない・反動を使わない", "下ろすのに2〜3秒"], "ワンハンドロウ": ["背中をまっすぐ、床と平行に近く", "肘を腰のポケットに向かって引く", "体をひねらない・腰を丸めない"], "ダンベルカール": ["肘を体の横に固定", "体を反らせて反動を使わない", "上で一瞬締めて、ゆっくり下ろす"], "フレンチプレス": ["背もたれのある椅子に座って", "肘を天井に向け、外に開かない", "二の腕の裏が伸びる感覚を確認"]};
 const ALLM=[...MENUS.machine,...MENUS.db];
 const isMenu=t=>t==="machine"||t==="db";
 const curMenu=()=>MENUS[st.type]||[];
@@ -126,6 +127,22 @@ const findM=n=>ALLM.find(x=>x.name===n);
 const uniLabel=m=>m&&m.uni?(m.uni===true?"片脚":m.uni):"";
 const stepOf=(n,w)=>{const m=findM(n);const st_=m&&m.step?m.step:(n&&/ダンベル|レイズ|カール|フレンチ|キックバック|ゴブレット|ブルガリアン|ワンハンド/.test(n)?1:5);return w!=null&&w<5&&st_>1?1:st_};
 const MSTEP=5,TARGET=15;
+/* --- session timing --- */
+function sessGet(){try{return JSON.parse(localStorage.getItem("wl_sess")||"null")}catch(_){return null}}
+function sessMark(){const d=ymd(new Date());const s=sessGet();
+  if(s&&s.d===d){if(s.end){delete s.end;try{localStorage.setItem("wl_sess",JSON.stringify(s))}catch(_){}renderElapsed()}return}
+  try{localStorage.setItem("wl_sess",JSON.stringify({d,t:new Date().toISOString()}))}catch(_){}renderElapsed()}
+function sessStart(date){const s=sessGet();return s&&s.d===date?s.t:null}
+function renderElapsed(){const el=document.getElementById("elapsed");if(!el)return;const s=sessGet();
+  if(!s||s.d!==ymd(new Date())){el.classList.add("hidden");return}
+  const m=Math.floor(((s.end?new Date(s.end):Date.now())-new Date(s.t))/60000);el.classList.remove("hidden");
+  if(s.end){el.innerHTML=`⏱ 今日のトレーニング <b>${m}</b>分${m>30?'<i>（30分オーバー）</i>':""}<button id="sessReset">リセット</button>`;el.classList.toggle("over",m>30);return}
+  el.innerHTML=`⏱ 開始から <b>${m}</b>分${m>=30?'<i>（30分を超えました）</i>':""}<button id="sessReset">リセット</button>`;
+  el.classList.toggle("over",m>=30)}
+setInterval(renderElapsed,30000);
+function dayMinutes(list){const st=list.map(x=>x.started_at).filter(Boolean).map(v=>+new Date(v));
+  const en=list.filter(x=>x.type==="strength").map(x=>+new Date(x.ts)).filter(v=>!isNaN(v));
+  if(!st.length||!en.length)return null;const m=Math.round((Math.max(...en)-Math.min(...st))/60000);return m>0&&m<240?m:null}
 const menuSt={};
 const st={type:"machine",part:"胸",ex:null,custom:false,place:"屋内",y:today.getFullYear(),m:today.getMonth()};
 
@@ -133,7 +150,7 @@ function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clear
 function setStatus(t){const s=$("status");if(t){s.textContent=t;s.classList.remove("hidden")}else s.classList.add("hidden")}
 
 /* ---------- routing ---------- */
-function route(){if(!session)return;const v=location.hash==="#log"?"log":location.hash==="#settings"?"settings":"month";
+function route(){if(!session)return;setTimeout(renderElapsed,0);const v=location.hash==="#log"?"log":location.hash==="#settings"?"settings":"month";
   $("v-settings").classList.toggle("hidden",v!=="settings");
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
   $("v-log").classList.toggle("hidden",v!=="log");$("saveBar").classList.toggle("hidden",v!=="log");$("v-month").classList.toggle("hidden",v!=="month");
@@ -214,7 +231,7 @@ function renderMenu(){
   $("menuList").innerHTML=curMenu().map(m=>{const p=nextPlan(m),on=menuSt[m.name];const l=p.base;
     const pv=l?`前回 ${l.date.slice(5).replace("-","/")}：${esc(fmtSet(l))}${l.memo?"（"+esc(l.memo)+"）":""}`:"まだ記録なし";
     let body="";
-    if(on){body=`<div class="mb">${on.sets.map((s,i)=>`<div class="srow"><button class="no ${s.done?"dn":""}" data-a="done" data-m="${m.name}" data-i="${i}">${s.done?"✓":i+1}</button>
+    if(on){const tp=TIPS[m.name];body=`<div class="mb">${tp?`<ul class="tips">${tp.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>`:""}${on.sets.map((s,i)=>`<div class="srow"><button class="no ${s.done?"dn":""}" data-a="done" data-m="${m.name}" data-i="${i}">${s.done?"✓":i+1}</button>
       ${m.bw?`<div class="stp" style="flex:0 0 74px;justify-content:center;align-items:center;color:var(--mu);font-size:13px">自重</div>`:
       `<div class="stp"><button data-a="w-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="decimal" data-f="w" data-m="${m.name}" data-i="${i}" value="${s.w??""}" placeholder="kg"><span class="unit" style="align-self:center">kg</span><button data-a="w+" data-m="${m.name}" data-i="${i}">＋</button></div>`}
       <div class="stp"><button data-a="r-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="numeric" data-f="r" data-m="${m.name}" data-i="${i}" value="${s.r??""}"><span class="unit" style="align-self:center">${m.sec?"秒":"回"}</span><button data-a="r+" data-m="${m.name}" data-i="${i}">＋</button></div>
@@ -227,14 +244,14 @@ function renderMenu(){
   updateSave()}
 $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;
   const m=findM(b.dataset.m),a=b.dataset.a,i=+b.dataset.i;
-  if(a==="tg"){if(menuSt[m.name])delete menuSt[m.name];else{const tgt=m.target||TARGET;
+  if(a==="tg"){if(menuSt[m.name])delete menuSt[m.name];else{sessMark();const tgt=m.target||TARGET;
       const l=lastOf(m.name);const sl=l&&setsOf(l);
       const n=Math.max(3,sl?sl.length:0);
       const lw=i=>{if(m.bw)return null;if(sl){const s=sl[Math.min(i,sl.length-1)];return s.w??null}return l?(l.weight??null):null};
       menuSt[m.name]={sets:Array.from({length:n},(_,i)=>({w:lw(i),r:tgt})),memo:""}}
     renderMenu();return}
   const o=menuSt[m.name];if(!o)return;
-  if(a==="done"){const s=o.sets[i];s.done=!s.done;renderMenu();
+  if(a==="done"){sessMark();const s=o.sets[i];s.done=!s.done;renderMenu();
     if(s.done){const left=o.sets.some(x=>!x.done)||curMenu().some(x=>menuSt[x.name]&&menuSt[x.name].sets.some(y=>!y.done));if(left)startTimer()}return}
   if(a==="fit"){const p=nextPlan(m);o.sets.forEach(x=>{if(!x.done)x.w=p.w});renderMenu();return}
   if(a==="add"){const last=o.sets[o.sets.length-1]||{w:null,r:m.target||TARGET};o.sets.push({w:last.w,r:last.r})}
@@ -256,6 +273,7 @@ function saveMenu(date){const list=menuOn();
     addEntry({type:"strength",date,part:m.part,exercise:m.name,unilateral:!!m.uni,set_list:sl,
       weight:ws.length?Math.max(...ws):null,reps:sl.map(s=>s.r??"?").join(","),sets:sl.length,memo:(o.memo||"").trim()||null});
     delete menuSt[m.name]});
+  if(!Object.keys(menuSt).length){const s_=sessGet();if(s_){s_.end=new Date().toISOString();try{localStorage.setItem("wl_sess",JSON.stringify(s_))}catch(_){}renderElapsed()}}
   return list.length}
 
 $("save").onclick=async()=>{if(!ready)return;let data;
@@ -276,7 +294,8 @@ $("save").onclick=async()=>{if(!ready)return;let data;
   saving=false;updateSave();renderEx()};
 
 function renderDay(){const d=$("date").value;const list=entries.filter(x=>x.date===d).sort((a,b)=>a.ts.localeCompare(b.ts));
-  $("dayCap").textContent=`${d.slice(5).replace("-","/")} の記録`;
+  const dm=dayMinutes(list);
+  $("dayCap").textContent=`${d.slice(5).replace("-","/")} の記録`+(dm?`　⏱ ${dm}分`:"");
   $("dayList").innerHTML=list.length?list.map(x=>`<div class="item"><div class="t"><div>${x.type==="run"?"🏃 ラン":"🏋️ "+esc(x.exercise)}${x._pend?'<span class="pend">未送信</span>':""}</div><div>${x.type==="run"?`${x.min}分・${x.km}km・${esc(x.place)}${x.memo?"　"+esc(x.memo):""}`:esc(x.part)+"　"+esc(fmtSet(x))+(x.memo?"　"+esc(x.memo):"")}</div></div><button class="del" data-id="${x.id}">編集</button></div>`).join(""):`<div class="empty">まだ記録はありません</div>`}
 $("dayList").onclick=e=>{const it=e.target.closest(".item");if(!it)return;const b=it.querySelector(".del");if(b)openEdit(b.dataset.id)};
 
@@ -349,7 +368,7 @@ function renderMonth(){const y=st.y,m=st.m,key=mkey(y,m);
   h+=`<div class="sec"><div class="sech"><span>STRENGTH — 筋トレ</span></div>`;
   if(!str.length){h+=`<div class="empty">この月の筋トレ記録はまだありません</div></div>`}
   else{
-    h+=`<div class="stats"><div><b>${new Set(str.map(x=>x.date)).size}</b><span>DAYS</span></div><div><b>${sets(str)}</b><span>SETS</span></div><div><b>${new Set(str.map(x=>x.exercise)).size}</b><span>EXERCISES</span></div></div>`;
+    h+=`<div class="stats"><div><b>${new Set(str.map(x=>x.date)).size}</b><span>DAYS</span></div><div><b>${sets(str)}</b><span>SETS</span></div><div><b>${new Set(str.map(x=>x.exercise)).size}</b><span>EXERCISES</span></div>${(()=>{const ds=[...new Set(str.map(x=>x.date))].map(d=>dayMinutes(inM.filter(x=>x.date===d))).filter(v=>v);return ds.length?`<div><b>${Math.round(ds.reduce((a,b)=>a+b,0)/ds.length)}<i>分</i></b><span>AVG TIME</span></div>`:""})()}</div>`;
     const cur={},prv={};PARTS.forEach(p=>{cur[p]=sets(str.filter(x=>x.part===p));prv[p]=sets(prevStr.filter(x=>x.part===p))});
     const mx=Math.max(1,...PARTS.map(p=>Math.max(cur[p],prv[p])));
     const vis={};PARTS.forEach(p=>vis[p]=cur[p]/mx);
@@ -363,7 +382,7 @@ function renderMonth(){const y=st.y,m=st.m,key=mkey(y,m);
       names.forEach(n=>{const a=byEx[n],days=new Set(a.map(x=>+x.date.slice(8)));
         const last=a.slice().sort((x,y)=>(y.date+y.ts).localeCompare(x.date+x.ts))[0];
         let dots="";for(let d=1;d<=nd;d++)dots+=`<i class="${days.has(d)?"on":""}"></i>`;
-        h+=`<div class="ex"><div class="a"><span>${esc(n)}</span><span><b>${days.size}</b>日・<b>${sets(a)}</b>セット</span></div><div class="b"><div class="dotsw"><div class="dots">${dots}</div><div class="dlab">${[1,10,20,nd].map(d=>`<i style="left:${((d-0.5)/nd*100).toFixed(2)}%">${d}</i>`).join("")}</div></div><span>${esc(fmtSet(last))}</span></div></div>`})});
+        h+=`<div class="ex" data-ex="${esc(n)}"><div class="a"><span>${esc(n)} <em class="chv">›</em></span><span><b>${days.size}</b>日・<b>${sets(a)}</b>セット</span></div><div class="b"><div class="dotsw"><div class="dots">${dots}</div><div class="dlab">${[1,10,20,nd].map(d=>`<i style="left:${((d-0.5)/nd*100).toFixed(2)}%">${d}</i>`).join("")}</div></div><span>${esc(fmtSet(last))}</span></div></div>`})});
     h+=`</div>`}
 
   /* run summary */
@@ -391,8 +410,37 @@ $("csv").onclick=async()=>{const csv=buildCsv();
 function renderAll(){renderMenu();renderEx();renderDay();if(!$("v-month").classList.contains("hidden"))renderMonth()}
 
 
+/* ---------- exercise progress chart ---------- */
+function openChart(name){const list=entries.filter(x=>x.type==="strength"&&x.exercise===name).sort((a,b)=>(a.date+a.ts).localeCompare(b.date+b.ts));
+  if(!list.length)return;const m=findM(name);
+  const bw=list.every(x=>{const sl=setsOf(x);return sl?sl.every(s=>s.w==null):x.weight==null});
+  const pts=list.map(x=>{const sl=setsOf(x);let v;
+    if(bw)v=sl?sl.reduce((a,s)=>a+(s.r||0),0):(parseInt(x.reps,10)||0)*(x.sets||1);
+    else v=sl?Math.max(...sl.map(s=>s.w??0)):(x.weight||0);return{d:x.date,v,x}});
+  const W=330,H=170,L=34,R=10,T=14,B=26;const vs=pts.map(p=>p.v);let lo=Math.min(...vs),hi=Math.max(...vs);
+  if(lo===hi){lo=Math.max(0,lo-5);hi=hi+5}const pad_=(hi-lo)*0.12;lo=Math.max(0,lo-pad_);hi=hi+pad_;
+  const X=i=>pts.length===1?L+(W-L-R)/2:L+i*(W-L-R)/(pts.length-1),Y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo));
+  const ticks=[lo,(lo+hi)/2,hi].map(v=>Math.round(v));
+  const idxs=[...new Set([0,Math.floor((pts.length-1)/2),pts.length-1])];
+  let svg=`<svg viewBox="0 0 ${W} ${H}" class="chart">${ticks.map(t=>`<line x1="${L}" x2="${W-R}" y1="${Y(t)}" y2="${Y(t)}" stroke="#24262c"/><text x="${L-6}" y="${Y(t)+3}" text-anchor="end">${t}</text>`).join("")}
+    <polyline fill="none" stroke="#ececef" stroke-width="2" stroke-linejoin="round" points="${pts.map((p,i)=>X(i)+","+Y(p.v)).join(" ")}"/>
+    ${pts.map((p,i)=>`<circle cx="${X(i)}" cy="${Y(p.v)}" r="3.5" fill="#0e0f12" stroke="#ececef" stroke-width="2"/>`).join("")}
+    ${idxs.map(i=>`<text x="${X(i)}" y="${H-8}" text-anchor="middle">${pts[i].d.slice(5).replace("-","/")}</text>`).join("")}</svg>`;
+  const first=pts[0].v,last=pts[pts.length-1].v,diff=last-first;
+  const unit=bw?(m&&m.sec?"秒（合計）":"回（合計）"):"kg";
+  $("chartBody").innerHTML=`<div class="shh"><b>${esc(name)}</b><button class="x" id="chartClose">✕</button></div>
+    <div class="cap" style="margin:4px 0 2px">${bw?"1回あたりの合計回数":"一番重いセットの重さ"}の推移（${pts.length}回分）</div>
+    <div class="stats" style="margin:8px 0"><div><b>${last}<i>${bw?"":"kg"}</i></b><span>最新</span></div><div><b>${diff>0?"+":""}${Math.round(diff*10)/10}<i>${bw?"":"kg"}</i></b><span>最初から</span></div><div><b>${Math.max(...vs)}<i>${bw?"":"kg"}</i></b><span>最高</span></div></div>
+    ${svg}<div class="hint">縦軸：${unit}</div>
+    <div class="cap" style="margin-top:16px">履歴</div>
+    ${pts.slice().reverse().map(p=>`<div class="item"><div class="t"><div>${p.d.slice(5).replace("-","/")}　${esc(fmtSet(p.x))}</div>${p.x.memo?`<div>${esc(p.x.memo)}</div>`:""}</div></div>`).join("")}`;
+  $("chartSheet").classList.remove("hidden");document.body.style.overflow="hidden"}
+function closeChart(){$("chartSheet").classList.add("hidden");document.body.style.overflow=""}
+$("chartSheet").addEventListener("click",e=>{if(e.target.id==="chartSheet"||e.target.id==="chartClose")closeChart()});
+
 /* ---------- calendar -> day ---------- */
-$("monthBody").addEventListener("click",e=>{const c=e.target.closest("[data-day]");if(!c)return;
+$("monthBody").addEventListener("click",e=>{const ex=e.target.closest("[data-ex]");if(ex){openChart(ex.dataset.ex);return}
+  const c=e.target.closest("[data-day]");if(!c)return;
   $("date").value=c.dataset.day;syncQuick();renderDay();location.hash="log";
   setTimeout(()=>$("dayCap").scrollIntoView({behavior:"smooth",block:"start"}),60)});
 
@@ -484,6 +532,7 @@ $("tOver").onclick=e=>{const b=e.target.closest("[data-o]");
   if(b&&b.dataset.o==="again"){startTimer();return}
   stopTimer()};
 renderRestChips();
+document.addEventListener("click",e=>{if(e.target.id==="sessReset"){try{localStorage.removeItem("wl_sess")}catch(_){}renderElapsed();toast("開始時刻をリセットしました")}});
 
 /* ---------- Claudeに相談 ---------- */
 function buildConsult(){const since=new Date();since.setDate(since.getDate()-42);const sk=ymd(since);

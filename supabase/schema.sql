@@ -33,3 +33,6 @@ create policy "own rows delete" on public.workouts for delete to authenticated u
 alter table public.workouts add column if not exists set_list jsonb;
 alter table public.workouts add column if not exists unilateral boolean not null default false;
 grant select, insert, update, delete on public.workouts to authenticated;
+
+-- 追加（v3）：トレーニング開始時刻
+alter table public.workouts add column if not exists started_at timestamptz;
