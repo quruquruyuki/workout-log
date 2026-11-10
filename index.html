@@ -162,6 +162,7 @@ small.lbl{display:block;color:var(--mu);font-size:11px;margin:14px 0 6px}
 #tOver .btn{background:#fff;color:#1b5e20;font-size:17px;padding:16px}
 #tOver .btn.ghost{background:none;color:#fff;border:1px solid rgba(255,255,255,.6)}
 @keyframes flash{from{background:#1b5e20}to{background:#43a047}}
+.qk .chip{min-height:36px;padding:7px 13px;font-size:13px}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);z-index:20;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
 #toast.on{opacity:1}
 </style>
@@ -189,8 +190,9 @@ small.lbl{display:block;color:var(--mu);font-size:11px;margin:14px 0 6px}
   </div>
   <label class="cap">TYPE — 種類</label>
   <div class="seg" id="typeSeg">
-    <button class="chip on" data-t="menu">📋 メニュー</button>
-    <button class="chip" data-t="strength">🏋️ その他の筋トレ</button>
+    <button class="chip on" data-t="machine">🏋️ マシン</button>
+    <button class="chip" data-t="db">💪 ダンベル</button>
+    <button class="chip" data-t="strength">＋ その他</button>
     <button class="chip" data-t="run">🏃 ラン</button>
   </div>
 
@@ -198,6 +200,7 @@ small.lbl{display:block;color:var(--mu);font-size:11px;margin:14px 0 6px}
     <div class="hint" style="margin-top:12px">やる種目をタップすると、前回の記録と次回の目安からセットが入ります。実際の回数に直して「記録する」。</div>
     <div class="restbox"><small class="lbl" style="margin:0 0 6px">⏱ セット間の休憩</small><div class="seg" id="restSeg"></div>
       <div class="hint" style="margin-top:6px">セット番号をタップして ✓ にすると、自動で休憩タイマーが始まります。</div></div>
+    <div class="hint" id="menuHint"></div>
     <div id="menuList"></div>
   </div>
 
@@ -216,10 +219,13 @@ small.lbl{display:block;color:var(--mu);font-size:11px;margin:14px 0 6px}
   </div>
 
   <div id="fRun" class="hidden">
-    <div class="row" style="margin-top:16px">
-      <div><small>時間（分）</small><input id="rmin" inputmode="decimal"></div>
-      <div><small>距離（km）</small><input id="rkm" inputmode="decimal"></div>
-    </div>
+    <label class="cap">TIME — 時間（分）</label>
+    <div class="seg qk"><button class="chip" data-rq="min" data-v="15">15分</button><button class="chip" data-rq="min" data-v="20">20分</button><button class="chip" data-rq="min" data-v="30">30分</button><button class="chip" data-rq="min" data-v="45">45分</button><button class="chip" data-rq="min" data-v="60">60分</button></div>
+    <div class="stp" style="margin-top:8px"><button data-rs="min" data-d="-1">−</button><input id="rmin" inputmode="decimal" placeholder="分"><span class="unit" style="align-self:center">分</span><button data-rs="min" data-d="1">＋</button></div>
+    <label class="cap">DISTANCE — 距離（km）</label>
+    <div class="seg qk"><button class="chip" data-rq="km" data-v="2">2km</button><button class="chip" data-rq="km" data-v="3">3km</button><button class="chip" data-rq="km" data-v="5">5km</button><button class="chip" data-rq="km" data-v="7">7km</button><button class="chip" data-rq="km" data-v="10">10km</button></div>
+    <div class="stp" style="margin-top:8px"><button data-rs="km" data-d="-1">−</button><input id="rkm" inputmode="decimal" placeholder="km"><span class="unit" style="align-self:center">km</span><button data-rs="km" data-d="1">＋</button></div>
+    <div class="hint" id="rPace"></div>
     <label class="cap">PLACE — 場所</label>
     <div class="seg" id="placeSeg">
       <button class="chip on" data-p="屋内">屋内</button>

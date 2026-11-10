@@ -106,17 +106,33 @@ const ymd=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const today=new Date();
 let entries=[],ready=false,saving=false;
-const MENU=[
+const MENUS={machine:[
   {name:"ショルダープレス",part:"肩"},
   {name:"チェストプレス",part:"胸"},
   {name:"ラットプルダウン",part:"背中"},
   {name:"アブベンチ",part:"腹・体幹",bw:true},
   {name:"プランク",part:"腹・体幹",bw:true,sec:true,target:30},
   {name:"レッグプレス",part:"脚",uni:true,max:60}
-];
+],db:[
+  {name:"ダンベルショルダープレス",part:"肩",step:1},
+  {name:"サイドレイズ",part:"肩",step:1},
+  {name:"ダンベルフロアプレス",part:"胸",step:1},
+  {name:"ワンハンドロウ",part:"背中",step:1,uni:"片手"},
+  {name:"ダンベルカール",part:"腕",step:1},
+  {name:"フレンチプレス",part:"腕",step:1},
+  {name:"ゴブレットスクワット",part:"脚",step:1},
+  {name:"ブルガリアンスクワット",part:"脚",step:1,uni:"片脚"},
+  {name:"ルーマニアンデッドリフト",part:"臀",step:1}
+]};
+const ALLM=[...MENUS.machine,...MENUS.db];
+const isMenu=t=>t==="machine"||t==="db";
+const curMenu=()=>MENUS[st.type]||[];
+const findM=n=>ALLM.find(x=>x.name===n);
+const uniLabel=m=>m&&m.uni?(m.uni===true?"片脚":m.uni):"";
+const stepOf=(n,w)=>{const m=findM(n);const st_=m&&m.step?m.step:(n&&/ダンベル|レイズ|カール|フレンチ|キックバック|ゴブレット|ブルガリアン|ワンハンド/.test(n)?1:5);return w!=null&&w<5&&st_>1?1:st_};
 const MSTEP=5,TARGET=15;
 const menuSt={};
-const st={type:"menu",part:"胸",ex:null,custom:false,place:"屋内",y:today.getFullYear(),m:today.getMonth()};
+const st={type:"machine",part:"胸",ex:null,custom:false,place:"屋内",y:today.getFullYear(),m:today.getMonth()};
 
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("on"),1800)}
 function setStatus(t){const s=$("status");if(t){s.textContent=t;s.classList.remove("hidden")}else s.classList.add("hidden")}
@@ -142,8 +158,16 @@ document.querySelectorAll(".stp button").forEach(b=>b.onclick=()=>{const i=$(b.d
   if(navigator.vibrate)try{navigator.vibrate(8)}catch(_){}});
 $("typeSeg").onclick=e=>{const b=e.target.closest("button");if(!b)return;st.type=b.dataset.t;
   [...$("typeSeg").children].forEach(x=>x.classList.toggle("on",x===b));
-  $("fMenu").classList.toggle("hidden",st.type!=="menu");
+  $("fMenu").classList.toggle("hidden",!isMenu(st.type));if(isMenu(st.type))renderMenu();
   $("fStrength").classList.toggle("hidden",st.type!=="strength");$("fRun").classList.toggle("hidden",st.type!=="run");updateSave()};
+function runPace(){const mn=parseFloat($("rmin").value),km=parseFloat($("rkm").value);
+  $("rPace").textContent=mn>0&&km>0?`ペース ${Math.floor(mn/km)}'${pad(Math.round((mn/km%1)*60))}"/km・時速${(km/(mn/60)).toFixed(1)}km`:""}
+document.querySelectorAll("[data-rq]").forEach(b=>b.onclick=()=>{const t=b.dataset.rq==="min"?$("rmin"):$("rkm");t.value=b.dataset.v;
+  [...b.parentNode.children].forEach(x=>x.classList.toggle("on",x===b));runPace()});
+document.querySelectorAll("[data-rs]").forEach(b=>b.onclick=()=>{const isMin=b.dataset.rs.startsWith("min");const t=isMin?$("rmin"):$("rkm");
+  let v=parseFloat(t.value)||0;v=Math.max(0,Math.round((v+(+b.dataset.d)*(isMin?1:0.1))*10)/10);t.value=v||"";
+  document.querySelectorAll(`[data-rq="${isMin?"min":"km"}"]`).forEach(x=>x.classList.toggle("on",+x.dataset.v===v));runPace()});
+$("rmin").oninput=$("rkm").oninput=runPace;
 $("placeSeg").onclick=e=>{const b=e.target.closest("button");if(!b)return;st.place=b.dataset.p;[...$("placeSeg").children].forEach(x=>x.classList.toggle("on",x===b))};
 
 function renderParts(){$("partSeg").innerHTML=PARTS.map(p=>`<button class="chip ${p===st.part?"on":""}" data-p="${p}">${p}</button>`).join("")}
@@ -161,10 +185,10 @@ function lastOf(name){return entries.filter(x=>x.type==="strength"&&x.exercise==
 function prefill(){const l=lastOf(st.ex);if(l){$("w").value=l.weight??"";$("reps").value=l.reps??"";$("sets").value=l.sets??3}}
 function updatePrev(){const l=st.ex&&lastOf(st.ex);$("prevHint").textContent=l?`前回 ${l.date.slice(5).replace("-","/")}：${fmtSet(l)}`:""}
 function curEx(){return st.custom?$("exCustom").value.trim():st.ex}
-function menuOn(){return MENU.filter(m=>menuSt[m.name])}
+function menuOn(){return curMenu().filter(m=>menuSt[m.name])}
 function updateSave(){const n=menuOn().length;
-  $("save").textContent=st.type==="menu"&&n?`記録する（${n}種目）`:"記録する";
-  $("save").disabled=!ready||saving||(st.type==="strength"&&!curEx())||(st.type==="menu"&&!n)}
+  $("save").textContent=isMenu(st.type)&&n?`記録する（${n}種目）`:"記録する";
+  $("save").disabled=!ready||saving||(st.type==="strength"&&!curEx())||(isMenu(st.type)&&!n)}
 
 /* --- per-set helpers --- */
 function setsOf(x){if(Array.isArray(x.set_list)&&x.set_list.length)return x.set_list;
@@ -176,7 +200,7 @@ function fmtSet(x){const sl=setsOf(x);
     if(g&&g.k===k)g.r.push(s.r);else grp.push({k,r:[s.r]})});
   const txt=grp.map(g=>{const rs=g.r.map(v=>v==null?"?":v+u);
     const same=rs.every(v=>v===rs[0]);return g.k+"×"+(same&&rs.length>1?rs[0]+"×"+rs.length:rs.join(","))}).join(" → ");
-  return (x.unilateral?"片脚":"")+txt}
+  return (x.unilateral?(uniLabel(findM(x.exercise))||"片脚"):"")+txt}
 function nextPlan(m){const l=lastOf(m.name);const sl=l&&setsOf(l);
   const tgt=m.target||TARGET;
   if(!sl)return{w:null,n:3,label:l?"前回はセット別の記録なし":"はじめての記録",up:false,base:l};
@@ -184,11 +208,12 @@ function nextPlan(m){const l=lastOf(m.name);const sl=l&&setsOf(l);
   const allTop=sl.length>=3&&sl.every(s=>(s.w??null)===mx&&s.r!=null&&s.r>=tgt);
   if(m.bw)return{w:null,n:Math.max(3,sl.length),label:allTop?(m.sec?"目標クリア。秒数を少し延ばしてもOK":"目標クリア。ゆっくり丁寧に"):`${tgt}${m.sec?"秒":"回"}×3を目指す`,up:allTop,base:l};
   if(mx==null)return{w:null,n:3,label:"重さを入れて記録",up:false,base:l};
-  if(allTop){let nw=mx+MSTEP;let note="";if(m.max&&nw>m.max){nw=m.max;note="（マシン上限）"}
+  if(allTop){let nw=mx+(m.step||MSTEP);let note="";if(m.max&&nw>m.max){nw=m.max;note="（マシン上限）"}
     return nw>mx?{w:nw,n:3,label:`上げどき → ${nw}kg`,up:true,base:l}:{w:mx,n:3,label:`上限${mx}kg。下ろすのに3秒かけて負荷アップ`,up:false,base:l}}
   return{w:mx,n:3,label:`${mx}kgで${tgt}回×3を目指す`,up:false,base:l}}
 function renderMenu(){
-  $("menuList").innerHTML=MENU.map(m=>{const p=nextPlan(m),on=menuSt[m.name];const l=p.base;
+  $("menuHint").textContent=st.type==="db"?"重さはダンベル1個あたりで入力。":"";
+  $("menuList").innerHTML=curMenu().map(m=>{const p=nextPlan(m),on=menuSt[m.name];const l=p.base;
     const pv=l?`前回 ${l.date.slice(5).replace("-","/")}：${esc(fmtSet(l))}${l.memo?"（"+esc(l.memo)+"）":""}`:"まだ記録なし";
     let body="";
     if(on){body=`<div class="mb">${on.sets.map((s,i)=>`<div class="srow"><button class="no ${s.done?"dn":""}" data-a="done" data-m="${m.name}" data-i="${i}">${s.done?"✓":i+1}</button>
@@ -199,10 +224,10 @@ function renderMenu(){
       <button class="ad" data-a="add" data-m="${m.name}">＋ セットを追加</button>
       <input class="memo" data-f="memo" data-m="${m.name}" placeholder="メモ（フォーム・違和感など）" value="${esc(on.memo||"")}"></div>`}
     return `<div class="mc ${on?"on":""}"><button class="mch" data-a="tg" data-m="${m.name}"><span class="ck">${on?"✓":""}</span><span style="flex:1;min-width:0">
-      <div class="nm">${m.name}<small>${m.part}${m.uni?"・片脚":""}</small></div><div class="pv">${pv}</div><div class="nx ${p.up?"up":""}">次回の目安：${esc(p.label)}</div></span></button>${body}</div>`}).join("");
+      <div class="nm">${m.name}<small>${m.part}${m.uni?"・"+uniLabel(m):""}</small></div><div class="pv">${pv}</div><div class="nx ${p.up?"up":""}">次回の目安：${esc(p.label)}</div></span></button>${body}</div>`}).join("");
   updateSave()}
 $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;
-  const m=MENU.find(x=>x.name===b.dataset.m),a=b.dataset.a,i=+b.dataset.i;
+  const m=findM(b.dataset.m),a=b.dataset.a,i=+b.dataset.i;
   if(a==="tg"){if(menuSt[m.name])delete menuSt[m.name];else{const tgt=m.target||TARGET;
       const l=lastOf(m.name);const sl=l&&setsOf(l);
       const n=Math.max(3,sl?sl.length:0);
@@ -211,17 +236,20 @@ $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");
     renderMenu();return}
   const o=menuSt[m.name];if(!o)return;
   if(a==="done"){const s=o.sets[i];s.done=!s.done;renderMenu();
-    if(s.done){const left=o.sets.some(x=>!x.done)||MENU.some(x=>menuSt[x.name]&&menuSt[x.name].sets.some(y=>!y.done));if(left)startTimer()}return}
+    if(s.done){const left=o.sets.some(x=>!x.done)||curMenu().some(x=>menuSt[x.name]&&menuSt[x.name].sets.some(y=>!y.done));if(left)startTimer()}return}
   if(a==="add"){const last=o.sets[o.sets.length-1]||{w:null,r:m.target||TARGET};o.sets.push({w:last.w,r:last.r})}
   else if(a==="rm"){o.sets.splice(i,1);if(!o.sets.length)delete menuSt[m.name]}
   else{const s=o.sets[i];const d=a.endsWith("+")?1:-1;
-    if(a[0]==="w"){s.w=Math.max(0,(s.w||0)+d*(s.w!=null&&s.w<5?1:MSTEP))||null}
+    if(a[0]==="w"){const old=s.w;s.w=Math.max(0,(s.w||0)+d*stepOf(m.name,s.w))||null;
+      for(let k=i+1;k<o.sets.length;k++){if(o.sets[k].w===old&&!o.sets[k].done)o.sets[k].w=s.w;else break}}
     else{s.r=Math.max(0,(s.r||0)+d*(m.sec?5:1))}
     if(navigator.vibrate)try{navigator.vibrate(8)}catch(_){}}
   renderMenu()});
 $("menuList").addEventListener("input",e=>{const t=e.target;if(!t.dataset.f)return;const o=menuSt[t.dataset.m];if(!o)return;
   if(t.dataset.f==="memo"){o.memo=t.value;return}
-  const v=parseFloat(t.value);o.sets[+t.dataset.i][t.dataset.f]=isNaN(v)?null:v});
+  const v=parseFloat(t.value),i=+t.dataset.i,f=t.dataset.f,old=o.sets[i][f];o.sets[i][f]=isNaN(v)?null:v;
+  if(f==="w")for(let k=i+1;k<o.sets.length;k++){if(o.sets[k].w===old&&!o.sets[k].done){o.sets[k].w=o.sets[i].w;
+    const el=document.querySelector(`#menuList input[data-f="w"][data-m="${t.dataset.m}"][data-i="${k}"]`);if(el)el.value=o.sets[i].w??""}else break}});
 function saveMenu(date){const list=menuOn();
   list.forEach(m=>{const o=menuSt[m.name];const sl=o.sets.map(s=>({w:m.bw?null:(s.w??null),r:s.r??null}));stopTimer();
     const ws=sl.map(s=>s.w).filter(v=>v!=null);
@@ -232,7 +260,7 @@ function saveMenu(date){const list=menuOn();
 
 $("save").onclick=async()=>{if(!ready)return;let data;
   const date=$("date").value||ymd(today);
-  if(st.type==="menu"){saving=true;updateSave();const n=saveMenu(date);saving=false;
+  if(isMenu(st.type)){saving=true;updateSave();const n=saveMenu(date);saving=false;
     toast(`${n}種目を記録しました`+(navigator.onLine?"":"（オンラインになったら送信）"));renderMenu();return}
   if(st.type==="strength"){const ex=curEx();if(!ex)return;
     const w=parseFloat($("w").value);const s=parseInt($("sets").value,10);
@@ -242,7 +270,7 @@ $("save").onclick=async()=>{if(!ready)return;let data;
     data={type:"run",date,min:isNaN(mn)?0:mn,km:isNaN(km)?0:km,place:st.place,memo:$("rmemo").value.trim()};}
   saving=true;updateSave();
   try{addEntry(data);toast(navigator.onLine?"記録しました":"記録しました（オンラインになったら送信）");
-    if(st.type==="run"){$("rmin").value="";$("rkm").value="";$("rmemo").value=""}
+    if(st.type==="run"){$("rmin").value="";$("rkm").value="";$("rmemo").value="";runPace();document.querySelectorAll("[data-rq]").forEach(x=>x.classList.remove("on"))}
     if(st.custom){st.custom=false;st.ex=data.exercise;$("exCustom").value=""}
   }catch(e){toast("保存できませんでした。もう一度お試しください")}
   saving=false;updateSave();renderEx()};
@@ -380,7 +408,7 @@ function renderEdit(){if(!ed)return;const u=ed.sec?"秒":"回";
   let h=`<div class="shh"><b>${ed.type==="run"?"🏃 ラン":"🏋️ "+esc(ed.exercise)}</b><button class="x" data-e="close">✕</button></div>
   <small class="lbl">日付</small><input type="date" data-ef="date" value="${ed.date}">`;
   if(ed.type==="strength"){
-    h+=`<small class="lbl">セット${ed.unilateral?"（片脚）":""}</small>`+ed.sets.map((s,i)=>`<div class="srow"><span class="no" style="border:none">${i+1}</span>
+    h+=`<small class="lbl">セット${ed.unilateral?"（"+(uniLabel(findM(ed.exercise))||"片脚")+"）":""}</small>`+ed.sets.map((s,i)=>`<div class="srow"><span class="no" style="border:none">${i+1}</span>
       <div class="stp"><button data-e="w-" data-i="${i}">−</button><input inputmode="decimal" data-ef="w" data-i="${i}" value="${s.w??""}" placeholder="自重"><span class="unit" style="align-self:center">kg</span><button data-e="w+" data-i="${i}">＋</button></div>
       <div class="stp"><button data-e="r-" data-i="${i}">−</button><input inputmode="numeric" data-ef="r" data-i="${i}" value="${s.r??""}"><span class="unit" style="align-self:center">${u}</span><button data-e="r+" data-i="${i}">＋</button></div>
       <button class="rm" data-e="rm" data-i="${i}">×</button></div>`).join("")+`<button class="ad" data-e="add">＋ セットを追加</button>`;
@@ -399,7 +427,7 @@ $("sheet").addEventListener("click",e=>{if(e.target.id==="sheet"){closeEdit();re
   else if(a==="add"){const l=ed.sets[ed.sets.length-1]||{w:null,r:null};ed.sets.push({w:l.w,r:l.r})}
   else if(a==="rm"){ed.sets.splice(i,1)}
   else if(a==="w-"||a==="w+"||a==="r-"||a==="r+"){const s=ed.sets[i],d=a.endsWith("+")?1:-1;
-    if(a[0]==="w")s.w=Math.max(0,(s.w||0)+d*(s.w!=null&&s.w<5?1:MSTEP))||null;else s.r=Math.max(0,(s.r||0)+d*(ed.sec?5:1))}
+    if(a[0]==="w")s.w=Math.max(0,(s.w||0)+d*stepOf(ed.exercise,s.w))||null;else s.r=Math.max(0,(s.r||0)+d*(ed.sec?5:1))}
   else if(a==="del"){if(!ed.sure){ed.sure=true;renderEdit();return}removeEntry(ed.id);closeEdit();toast("削除しました");return}
   else if(a==="save"){let patch={date:ed.date||ymd(today),memo:ed.memo.trim()||null};
     if(ed.type==="strength"){if(!ed.sets.length){toast("セットが0です。削除する場合は下のボタンから");return}
