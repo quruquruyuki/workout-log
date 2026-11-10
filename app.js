@@ -367,17 +367,17 @@ function bodySvg(v){/* v: part -> 0..1 */
     <text x="50" y="234" fill="#7d7f88" font-size="7" text-anchor="middle" font-family="Jost" letter-spacing="2">${label}</text></g>`;
   return `<svg viewBox="0 0 205 238" xmlns="http://www.w3.org/2000/svg">${fig(FRONT,0,"FRONT")}${fig(BACK,105,"BACK")}</svg>`}
 
-function renderWeek(){const el=$("weekBox");if(!el)return;const now=new Date();const dow=(now.getDay()+6)%7;
+function weekHtml(){const now=new Date();const dow=(now.getDay()+6)%7;
   const mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow);const days=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);days.push(ymd(d))}
   const sdays=new Set(entries.filter(x=>x.type==="strength").map(x=>x.date));
   const done=days.filter(d=>sdays.has(d)).length,GOAL=2;
   const last=[...sdays].filter(d=>d<=ymd(now)).sort().pop();
   const since=last?Math.round((new Date(ymd(now)+"T00:00")-new Date(last+"T00:00"))/86400000):null;
   const wd="月火水木金土日";
-  el.innerHTML=`<div class="wk-h"><span>THIS WEEK — 今週の筋トレ</span><b>${done}<i>/${GOAL}回</i></b></div>
+  return `<div class="week"><div class="wk-h"><span>THIS WEEK — 今週の筋トレ</span><b>${done}<i>/${GOAL}回</i></b></div>
     <div class="wk-d">${days.map((d,i)=>`<div class="${sdays.has(d)?"on":""} ${d===ymd(now)?"td":""}"><i>${sdays.has(d)?"🏋️":""}</i><span>${wd[i]}</span></div>`).join("")}</div>
-    <div class="wk-f">${done>=GOAL?"今週の目標達成 ✓":`あと${GOAL-done}回`}${since!=null?`　・　${since===0?"今日やりました":`前回から${since}日`}`:""}</div>`}
-function renderMonth(){renderWeek();const y=st.y,m=st.m,key=mkey(y,m);
+    <div class="wk-f">${done>=GOAL?"今週の目標達成 ✓":`あと${GOAL-done}回`}${since!=null?`　・　${since===0?"今日やりました":`前回から${since}日`}`:""}</div></div>`}
+function renderMonth(){const y=st.y,m=st.m,key=mkey(y,m);
   $("mNum").textContent=m+1;$("mName").textContent=MONTHS[m]+" "+y;
   const pm=m===0?11:m-1,py=m===0?y-1:y,pkey=mkey(py,pm);
   const inM=entries.filter(x=>x.date&&x.date.startsWith(key));
@@ -396,6 +396,7 @@ function renderMonth(){renderWeek();const y=st.y,m=st.m,key=mkey(y,m);
     h+=`<div class="${s?"act":""}${k===tk?" today":""}" data-day="${k}"><div class="d">${d}</div><div class="ic">${s?(s.has("strength")?"🏋️":"")+(s.has("run")?"🏃":""):""}</div></div>`}
   const rest=(7-(first+nd)%7)%7;for(let i=0;i<rest;i++)h+=`<div class="out"></div>`;
   h+=`</div>`;
+  h+=weekHtml();
 
   /* strength summary */
   const sets=a=>a.reduce((s,x)=>s+(x.sets||0),0);
