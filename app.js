@@ -341,8 +341,9 @@ function renderMonth(){const y=st.y,m=st.m,key=mkey(y,m);
   h+=`<div class="stats" style="margin-top:6px"><div><b>${str.length?new Set(str.map(x=>x.date)).size:0}</b><span>🏋️ 筋トレ</span></div><div><b>${runs.length}</b><span>🏃 ラン</span></div><div><b>${Object.keys(actDays).length}</b><span>活動日</span></div></div>`;
   h+=`<div class="cal">${["MON","TUE","WED","THU","FRI","SAT","SUN"].map(d=>`<div class="dow">${d}</div>`).join("")}`;
   for(let i=0;i<first;i++)h+=`<div class="out"></div>`;
+  const tk=ymd(new Date());
   for(let d=1;d<=nd;d++){const k=key+"-"+pad(d),s=actDays[k];
-    h+=`<div class="${s?"act":""}" data-day="${k}"><div class="d">${d}</div><div class="ic">${s?(s.has("strength")?"🏋️":"")+(s.has("run")?"🏃":""):""}</div></div>`}
+    h+=`<div class="${s?"act":""}${k===tk?" today":""}" data-day="${k}"><div class="d">${d}</div><div class="ic">${s?(s.has("strength")?"🏋️":"")+(s.has("run")?"🏃":""):""}</div></div>`}
   const rest=(7-(first+nd)%7)%7;for(let i=0;i<rest;i++)h+=`<div class="out"></div>`;
   h+=`</div>`;
 
