@@ -114,9 +114,9 @@ const MENUS={machine:[
   {name:"プランク",part:"腹・体幹",bw:true,sec:true,target:30},
   {name:"レッグプレス",part:"脚",uni:true,max:60}
 ],db:[
-  {name:"サイドレイズ",part:"肩",step:1},
+  {name:"サイドレイズ",part:"肩",step:1,uni:"片手"},
   {name:"ワンハンドロウ",part:"背中",step:1,uni:"片手"},
-  {name:"ダンベルカール",part:"腕",step:1},
+  {name:"ダンベルカール",part:"腕",step:1,uni:"片手"},
   {name:"フレンチプレス",part:"腕",step:1}
 ]};
 const ALLM=[...MENUS.machine,...MENUS.db];
