@@ -501,9 +501,16 @@ function buildConsult(){const since=new Date();since.setDate(since.getDate()-42)
   if(notes.length)t+="\n【メモがある記録】\n"+notes.map(x=>`${x.date.slice(5)} ${x.exercise||"ラン"}：${x.memo}`).join("\n")+"\n";
   return t}
 function askPrompt(){return `運動ログアプリの記録（Supabaseプロジェクト「workout-log」、ID: twixkmtxfneivijvupyu の workouts テーブル）を読んで、直近の筋トレについてアドバイスをください。前回からの変化、次回の重さの目安、メモにある違和感への対処を中心にお願いします。（今日は${ymd(new Date())}）`}
-function setAskLinks(){const q=encodeURIComponent(askPrompt());
-  $("askApp").href="claude://claude.ai/new?q="+q;$("askWeb").href="https://claude.ai/new?q="+q}
-$("askApp").addEventListener("click",setAskLinks);$("askWeb").addEventListener("click",setAskLinks);setAskLinks();
+const ASK_DEFAULT="https://claude.ai/code/session_01Bw63Nz2BF8o3EN42vdwFbR";
+function askUrl(){let u;try{u=localStorage.getItem("wl_askurl")}catch(_){}return u==null?ASK_DEFAULT:u}
+$("askUrl").value=askUrl();
+$("askUrl").addEventListener("change",()=>{const v=$("askUrl").value.trim();
+  if(v&&!/^https:\/\/claude\.ai\//.test(v)){toast("claude.ai のURLを入れてください");$("askUrl").value=askUrl();return}
+  try{localStorage.setItem("wl_askurl",v)}catch(_){}toast(v?"相談チャットを保存しました":"毎回新しいチャットで開きます")});
+$("askApp").addEventListener("click",async e=>{const u=askUrl(),q=askPrompt();
+  if(!u){$("askApp").href="https://claude.ai/new?q="+encodeURIComponent(q);return}
+  $("askApp").href=u;
+  try{await navigator.clipboard.writeText(q);toast("相談文をコピーしました。貼り付けて送信してください")}catch(_){}});
 $("consult").onclick=async()=>{const t=buildConsult();
   try{await navigator.clipboard.writeText(t);toast("コピーしました。Claudeに貼り付けてください")}
   catch(_){const b=$("csvBox");b.value=t;b.classList.remove("hidden");b.select();toast("下の欄から全選択してコピーしてください")}};

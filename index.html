@@ -264,8 +264,11 @@ a.btn{display:block;text-align:center;text-decoration:none;box-sizing:border-box
   <div class="sethead"><button class="back" id="setBack">‹ ホーム</button><b>設定</b><span></span></div>
   <div class="sec" style="margin-top:22px">
     <div class="sech"><span>ASK CLAUDE — 相談</span></div>
-    <a class="btn" id="askApp" href="claude://claude.ai/new">Claudeアプリでアドバイスをもらう</a>
-    <div class="hint">Claudeが開いて、相談の文章が入力された状態になります。送信するとClaudeがSupabaseの記録を読んで答えます。<a id="askWeb" href="https://claude.ai/new" target="_blank" rel="noopener" style="color:var(--mu)">ブラウザ版で開く</a></div>
+    <a class="btn" id="askApp" href="https://claude.ai/">Claudeでアドバイスをもらう</a>
+    <div class="hint">いつもの相談チャットが開き、相談の文章がコピーされます。入力欄に貼り付けて送信してください。</div>
+    <small class="lbl">相談に使うチャットのURL</small>
+    <input id="askUrl" placeholder="https://claude.ai/…" autocomplete="off">
+    <div class="hint">変えたいときは、使いたいチャットのURL（claude.ai/chat/… や claude.ai/code/…）を貼り付けてください。空にすると毎回新しいチャットになります。</div>
     <button class="btn ghost" id="consult" style="margin-top:14px">記録を文章でコピー（直近6週間）</button>
     <div class="hint">Supabaseとつないでいないチャットで相談するときは、こちらをコピーして貼り付けてください。</div>
   </div>
