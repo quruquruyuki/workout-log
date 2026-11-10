@@ -558,6 +558,24 @@ function confirmLogout() {
   setTimeout(() => { delete b.dataset.sure; b.textContent = "ログアウト"; }, 4000);
   return false;
 }
+/* ---------- ショートカットからのラン取り込み（?run=1&min=..&km=..&place=..&date=..&memo=..） ---------- */
+let runIn=null;
+(()=>{try{const q=new URLSearchParams(location.search);
+  if(q.has("run")){runIn={min:q.get("min"),km:q.get("km"),place:q.get("place"),date:q.get("date"),memo:q.get("memo")};
+    sessionStorage.setItem("wl_runin",JSON.stringify(runIn));history.replaceState(null,"",location.pathname+"#log")}
+  else{const v=sessionStorage.getItem("wl_runin");if(v)runIn=JSON.parse(v)}}catch(_){}})();
+function applyRunIn(){if(!runIn)return;const r=runIn;runIn=null;try{sessionStorage.removeItem("wl_runin")}catch(_){}
+  const num=v=>{const n=parseFloat(String(v||"").replace(/[^0-9.]/g,""));return isNaN(n)?"":n};
+  let mn=num(r.min),km=num(r.km);
+  if(mn!=="")mn=Math.round(mn*10)/10; if(km!=="")km=Math.round(km*100)/100;
+  location.hash="log";
+  document.querySelector('#typeSeg [data-t="run"]').click();
+  if(r.date&&/^\d{4}-\d{2}-\d{2}/.test(r.date)){$("date").value=r.date.slice(0,10);syncQuick();renderDay()}
+  $("rmin").value=mn;$("rkm").value=km;
+  if(r.place){const pl=/外|out/i.test(r.place)?"屋外":/内|in/i.test(r.place)?"屋内":null;
+    if(pl)document.querySelector(`#placeSeg [data-p="${pl}"]`).click()}
+  if(r.memo)$("rmemo").value=r.memo;
+  runPace();toast("ランの記録を読み込みました。確認して「記録する」を押してください")}
 async function onSession(s) {
   const changed = (s?.user?.id) !== (session?.user?.id);
   session = s;
@@ -565,6 +583,7 @@ async function onSession(s) {
   $("who").textContent = s.user.email || "";
   showApp(true);
   if (changed) await load();
+  applyRunIn();
 }
 
 /* ---------- init ---------- */
