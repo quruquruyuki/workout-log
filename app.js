@@ -111,8 +111,8 @@ const MENUS={machine:[
   {name:"チェストプレス",part:"胸"},
   {name:"ラットプルダウン",part:"背中"},
   {name:"アブベンチ",part:"腹・体幹",bw:true},
-  {name:"プランク",part:"腹・体幹",bw:true,sec:true,target:30},
-  {name:"レッグプレス",part:"脚",uni:true,max:60}
+  {name:"レッグプレス",part:"脚",uni:true,max:60},
+  {name:"プランク",part:"腹・体幹",bw:true,sec:true,target:30}
 ],db:[
   {name:"サイドレイズ",part:"肩",step:1,uni:"片手"},
   {name:"ワンハンドロウ",part:"背中",step:1,uni:"片手"},
