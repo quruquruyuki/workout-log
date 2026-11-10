@@ -127,6 +127,11 @@ const findM=n=>ALLM.find(x=>x.name===n);
 const uniLabel=m=>m&&m.uni?(m.uni===true?"片脚":m.uni):"";
 const stepOf=(n,w)=>{const m=findM(n);const st_=m&&m.step?m.step:(n&&/ダンベル|レイズ|カール|フレンチ|キックバック|ゴブレット|ブルガリアン|ワンハンド/.test(n)?1:5);return w!=null&&w<5&&st_>1?1:st_};
 const MSTEP=5,TARGET=15;
+const RIR=[{v:3,e:"😌",l:"余裕",d:"あと3回以上"},{v:1,e:"😤",l:"ギリギリ",d:"あと1〜2回"},{v:0,e:"🔥",l:"限界",d:"あと0回"}];
+const rirOf=v=>RIR.find(x=>x.v===v);
+function rirPicker(attr,i,cur){return `<div class="rir">${RIR.map(x=>`<button ${attr}="rir" data-i="${i}" data-v="${x.v}" class="${cur===x.v?"on":""}"><span>${x.e} ${x.l}</span><small>${x.d}</small></button>`).join("")}</div>`}
+function rirText(x){const sl=setsOf(x);if(!sl||!sl.some(s=>s.rir!=null))return"";return sl.map(s=>s.rir!=null?rirOf(s.rir).e:"・").join("")}
+function rirWords(x){const sl=setsOf(x);if(!sl||!sl.some(s=>s.rir!=null))return"";return "きつさ："+sl.map((s,i)=>`${i+1}セット目${s.rir!=null?rirOf(s.rir).l+"（"+rirOf(s.rir).d+"）":"未入力"}`).join("、")}
 /* --- session timing --- */
 function sessGet(){try{return JSON.parse(localStorage.getItem("wl_sess")||"null")}catch(_){return null}}
 function sessMark(){const d=ymd(new Date());const s=sessGet();
@@ -224,9 +229,11 @@ function nextPlan(m){const l=lastOf(m.name);const sl=l&&setsOf(l);
   const allTop=sl.length>=3&&sl.every(s=>(s.w??null)===mx&&s.r!=null&&s.r>=tgt);
   if(m.bw)return{w:null,n:Math.max(3,sl.length),label:allTop?(m.sec?"目標クリア。秒数を少し延ばしてもOK":"目標クリア。ゆっくり丁寧に"):`${tgt}${m.sec?"秒":"回"}×3を目指す`,up:allTop,base:l};
   if(mx==null)return{w:null,n:3,label:"重さを入れて記録",up:false,base:l};
+  const allEasy=sl.length>=3&&sl.every(s=>s.rir===3);
   if(allTop){let nw=mx+(m.step||MSTEP);let note="";if(m.max&&nw>m.max){nw=m.max;note="（マシン上限）"}
-    return nw>mx?{w:nw,n:3,label:`上げどき → ${nw}kg`,up:true,base:l}:{w:mx,n:3,label:`上限${mx}kg。下ろすのに3秒かけて負荷アップ`,up:false,base:l}}
-  return{w:mx,n:3,label:`${mx}kgで${tgt}回×3を目指す`,up:false,base:l}}
+    return nw>mx?{w:nw,n:3,label:`上げどき → ${nw}kg${allEasy?"（前回は全セット余裕）":""}`,up:true,base:l}:{w:mx,n:3,label:`上限${mx}kg。下ろすのに3秒かけて負荷アップ`,up:false,base:l}}
+  const anyMax=sl.some(s=>s.rir===0&&(s.r??0)<tgt);
+  return{w:mx,n:3,label:`${mx}kgで${tgt}回×3を目指す${anyMax?"（前回は限界まで出し切れています）":""}`,up:false,base:l}}
 function tipsFor(m,p){const out=[];const l=lastOf(m.name);const sl=l&&setsOf(l);
   if(l&&l.memo)out.push({k:"memo",t:`📝 前回のメモ：${l.memo}`});
   if(p.up)out.push({k:"up",t:"⬆ 今日は上げる日。上げた直後は10〜12回で終わっても正常、フォームが崩れなければ成功"});
@@ -237,13 +244,13 @@ function tipsFor(m,p){const out=[];const l=lastOf(m.name);const sl=l&&setsOf(l);
 function renderMenu(){
   $("menuHint").textContent=st.type==="db"?"重さはダンベル1個あたりで入力。":"";
   $("menuList").innerHTML=curMenu().map(m=>{const p=nextPlan(m),on=menuSt[m.name];const l=p.base;
-    const pv=l?`前回 ${l.date.slice(5).replace("-","/")}：${esc(fmtSet(l))}${l.memo?"（"+esc(l.memo)+"）":""}`:"まだ記録なし";
+    const pv=l?`前回 ${l.date.slice(5).replace("-","/")}：${esc(fmtSet(l))}${rirText(l)?" "+rirText(l):""}${l.memo?"（"+esc(l.memo)+"）":""}`:"まだ記録なし";
     let body="";
-    if(on){const tl=tipsFor(m,p);body=`<div class="mb">${tl.length?`<ul class="tips">${tl.map(t=>`<li class="${t.k}">${esc(t.t)}</li>`).join("")}</ul>`:""}${on.sets.map((s,i)=>`<div class="srow"><button class="no ${s.done?"dn":""}" data-a="done" data-m="${m.name}" data-i="${i}">${s.done?"✓":i+1}</button>
+    if(on){const tl=tipsFor(m,p);body=`<div class="mb">${tl.length?`<ul class="tips">${tl.map(t=>`<li class="${t.k}">${esc(t.t)}</li>`).join("")}</ul>`:""}${on.sets.map((s,i)=>`<div class="srow"><button class="no ${s.done?"dn":""}" data-a="done" data-m="${m.name}" data-i="${i}">${s.done?(s.rir!=null?rirOf(s.rir).e:"✓"):i+1}</button>
       ${m.bw?`<div class="stp" style="flex:0 0 74px;justify-content:center;align-items:center;color:var(--mu);font-size:13px">自重</div>`:
       `<div class="stp"><button data-a="w-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="decimal" data-f="w" data-m="${m.name}" data-i="${i}" value="${s.w??""}" placeholder="kg"><span class="unit" style="align-self:center">kg</span><button data-a="w+" data-m="${m.name}" data-i="${i}">＋</button></div>`}
       <div class="stp"><button data-a="r-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="numeric" data-f="r" data-m="${m.name}" data-i="${i}" value="${s.r??""}"><span class="unit" style="align-self:center">${m.sec?"秒":"回"}</span><button data-a="r+" data-m="${m.name}" data-i="${i}">＋</button></div>
-      <button class="rm" data-a="rm" data-m="${m.name}" data-i="${i}">×</button></div>`).join("")}
+      <button class="rm" data-a="rm" data-m="${m.name}" data-i="${i}">×</button></div>${s.done?rirPicker(`data-m="${m.name}" data-a`,i,s.rir):""}`).join("")}
       ${p.w!=null&&on.sets.some(x=>!x.done&&x.w!==p.w)?`<button class="ad fit" data-a="fit" data-m="${m.name}">残りのセットを目標の ${p.w}kg にそろえる</button>`:""}
       <button class="ad" data-a="add" data-m="${m.name}">＋ セットを追加</button>
       <input class="memo" data-f="memo" data-m="${m.name}" placeholder="メモ（フォーム・違和感など）" value="${esc(on.memo||"")}"></div>`}
@@ -259,7 +266,8 @@ $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");
       menuSt[m.name]={sets:Array.from({length:n},(_,i)=>({w:lw(i),r:tgt})),memo:""}}
     renderMenu();return}
   const o=menuSt[m.name];if(!o)return;
-  if(a==="done"){sessMark();const s=o.sets[i];s.done=!s.done;renderMenu();
+  if(a==="rir"){const s=o.sets[i];const v=+b.dataset.v;s.rir=s.rir===v?null:v;renderMenu();return}
+  if(a==="done"){sessMark();const s=o.sets[i];s.done=!s.done;if(!s.done)delete s.rir;renderMenu();
     if(s.done){const left=o.sets.some(x=>!x.done)||curMenu().some(x=>menuSt[x.name]&&menuSt[x.name].sets.some(y=>!y.done));if(left)startTimer()}return}
   if(a==="fit"){const p=nextPlan(m);o.sets.forEach(x=>{if(!x.done)x.w=p.w});renderMenu();return}
   if(a==="add"){const last=o.sets[o.sets.length-1]||{w:null,r:m.target||TARGET};o.sets.push({w:last.w,r:last.r})}
@@ -276,7 +284,7 @@ $("menuList").addEventListener("input",e=>{const t=e.target;if(!t.dataset.f)retu
   if(f==="w")for(let k=i+1;k<o.sets.length;k++){if(o.sets[k].w===old&&!o.sets[k].done){o.sets[k].w=o.sets[i].w;
     const el=document.querySelector(`#menuList input[data-f="w"][data-m="${t.dataset.m}"][data-i="${k}"]`);if(el)el.value=o.sets[i].w??""}else break}});
 function saveMenu(date){const list=menuOn();
-  list.forEach(m=>{const o=menuSt[m.name];const sl=o.sets.map(s=>({w:m.bw?null:(s.w??null),r:s.r??null}));stopTimer();
+  list.forEach(m=>{const o=menuSt[m.name];const sl=o.sets.map(s=>{const z={w:m.bw?null:(s.w??null),r:s.r??null};if(s.rir!=null)z.rir=s.rir;return z});stopTimer();
     const ws=sl.map(s=>s.w).filter(v=>v!=null);
     addEntry({type:"strength",date,part:m.part,exercise:m.name,unilateral:!!m.uni,set_list:sl,
       weight:ws.length?Math.max(...ws):null,reps:sl.map(s=>s.r??"?").join(","),sets:sl.length,memo:(o.memo||"").trim()||null});
@@ -304,7 +312,7 @@ $("save").onclick=async()=>{if(!ready)return;let data;
 function renderDay(){const d=$("date").value;const list=entries.filter(x=>x.date===d).sort((a,b)=>a.ts.localeCompare(b.ts));
   const dm=dayMinutes(list);
   $("dayCap").textContent=`${d.slice(5).replace("-","/")} の記録`+(dm?`　⏱ ${dm}分`:"");
-  $("dayList").innerHTML=list.length?list.map(x=>`<div class="item"><div class="t"><div>${x.type==="run"?"🏃 ラン":"🏋️ "+esc(x.exercise)}${x._pend?'<span class="pend">未送信</span>':""}</div><div>${x.type==="run"?`${x.min}分・${x.km}km・${esc(x.place)}${x.memo?"　"+esc(x.memo):""}`:esc(x.part)+"　"+esc(fmtSet(x))+(x.memo?"　"+esc(x.memo):"")}</div></div><button class="del" data-id="${x.id}">編集</button></div>`).join(""):`<div class="empty">まだ記録はありません</div>`}
+  $("dayList").innerHTML=list.length?list.map(x=>`<div class="item"><div class="t"><div>${x.type==="run"?"🏃 ラン":"🏋️ "+esc(x.exercise)}${x._pend?'<span class="pend">未送信</span>':""}</div><div>${x.type==="run"?`${x.min}分・${x.km}km・${esc(x.place)}${x.memo?"　"+esc(x.memo):""}`:esc(x.part)+"　"+esc(fmtSet(x))+(rirText(x)?"　"+rirText(x):"")+(x.memo?"　"+esc(x.memo):"")}</div></div><button class="del" data-id="${x.id}">編集</button></div>`).join(""):`<div class="empty">まだ記録はありません</div>`}
 $("dayList").onclick=e=>{const it=e.target.closest(".item");if(!it)return;const b=it.querySelector(".del");if(b)openEdit(b.dataset.id)};
 
 /* ---------- month ---------- */
@@ -452,7 +460,7 @@ function openChart(name){const list=entries.filter(x=>x.type==="strength"&&x.exe
     <div class="stats" style="margin:8px 0"><div><b>${last}<i>${bw?"":"kg"}</i></b><span>最新</span></div><div><b>${diff>0?"+":""}${Math.round(diff*10)/10}<i>${bw?"":"kg"}</i></b><span>最初から</span></div><div><b>${Math.max(...vs)}<i>${bw?"":"kg"}</i></b><span>最高</span></div></div>
     ${svg}<div class="hint">縦軸：${unit}</div>
     <div class="cap" style="margin-top:16px">履歴</div>
-    ${pts.slice().reverse().map(p=>`<div class="item"><div class="t"><div>${p.d.slice(5).replace("-","/")}　${esc(fmtSet(p.x))}</div>${p.x.memo?`<div>${esc(p.x.memo)}</div>`:""}</div></div>`).join("")}`;
+    ${pts.slice().reverse().map(p=>`<div class="item"><div class="t"><div>${p.d.slice(5).replace("-","/")}　${esc(fmtSet(p.x))}${rirText(p.x)?"　"+rirText(p.x):""}</div>${p.x.memo?`<div>${esc(p.x.memo)}</div>`:""}</div></div>`).join("")}`;
   $("chartSheet").classList.remove("hidden");document.body.style.overflow="hidden"}
 function closeChart(){$("chartSheet").classList.add("hidden");document.body.style.overflow=""}
 $("chartSheet").addEventListener("click",e=>{if(e.target.id==="chartSheet"||e.target.id==="chartClose")closeChart()});
@@ -468,7 +476,7 @@ let ed=null;
 function openEdit(id){const x=entries.find(e=>e.id===id);if(!x)return;
   ed={id,type:x.type,date:x.date,memo:x.memo||"",exercise:x.exercise,part:x.part,unilateral:!!x.unilateral,
     min:x.min,km:x.km,place:x.place||"屋内",
-    sets:x.type==="strength"?(setsOf(x)?setsOf(x).map(s=>({w:s.w,r:s.r})):Array.from({length:x.sets||1},()=>({w:x.weight??null,r:parseInt(x.reps,10)||null}))):[],
+    sets:x.type==="strength"?(setsOf(x)?setsOf(x).map(s=>({w:s.w,r:s.r,rir:s.rir??null})):Array.from({length:x.sets||1},()=>({w:x.weight??null,r:parseInt(x.reps,10)||null}))):[],
     sec:x.exercise==="プランク",sure:false};
   renderEdit();$("sheet").classList.remove("hidden");document.body.style.overflow="hidden"}
 function closeEdit(){ed=null;$("sheet").classList.add("hidden");document.body.style.overflow=""}
@@ -479,7 +487,7 @@ function renderEdit(){if(!ed)return;const u=ed.sec?"秒":"回";
     h+=`<small class="lbl">セット${ed.unilateral?"（"+(uniLabel(findM(ed.exercise))||"片脚")+"）":""}</small>`+ed.sets.map((s,i)=>`<div class="srow"><span class="no" style="border:none">${i+1}</span>
       <div class="stp"><button data-e="w-" data-i="${i}">−</button><input inputmode="decimal" data-ef="w" data-i="${i}" value="${s.w??""}" placeholder="自重"><span class="unit" style="align-self:center">kg</span><button data-e="w+" data-i="${i}">＋</button></div>
       <div class="stp"><button data-e="r-" data-i="${i}">−</button><input inputmode="numeric" data-ef="r" data-i="${i}" value="${s.r??""}"><span class="unit" style="align-self:center">${u}</span><button data-e="r+" data-i="${i}">＋</button></div>
-      <button class="rm" data-e="rm" data-i="${i}">×</button></div>`).join("")+`<button class="ad" data-e="add">＋ セットを追加</button>`;
+      <button class="rm" data-e="rm" data-i="${i}">×</button></div>${rirPicker("data-e",i,s.rir)}`).join("")+`<button class="ad" data-e="add">＋ セットを追加</button>`;
   }else{
     h+=`<div class="row" style="margin-top:6px"><div><small class="lbl">時間（分）</small><input inputmode="decimal" data-ef="min" value="${ed.min??""}"></div><div><small class="lbl">距離（km）</small><input inputmode="decimal" data-ef="km" value="${ed.km??""}"></div></div>
     <small class="lbl">場所</small><div class="seg">${["屋内","屋外"].map(p=>`<button class="chip ${ed.place===p?"on":""}" data-e="place" data-v="${p}">${p}</button>`).join("")}</div>`;
@@ -492,6 +500,7 @@ $("sheet").addEventListener("click",e=>{if(e.target.id==="sheet"){closeEdit();re
   const b=e.target.closest("[data-e]");if(!b||!ed)return;const a=b.dataset.e,i=+b.dataset.i;
   if(a==="close"){closeEdit();return}
   if(a==="place"){ed.place=b.dataset.v}
+  else if(a==="rir"){const s=ed.sets[i],v=+b.dataset.v;s.rir=s.rir===v?null:v}
   else if(a==="add"){const l=ed.sets[ed.sets.length-1]||{w:null,r:null};ed.sets.push({w:l.w,r:l.r})}
   else if(a==="rm"){ed.sets.splice(i,1)}
   else if(a==="w-"||a==="w+"||a==="r-"||a==="r+"){const s=ed.sets[i],d=a.endsWith("+")?1:-1;
@@ -499,7 +508,7 @@ $("sheet").addEventListener("click",e=>{if(e.target.id==="sheet"){closeEdit();re
   else if(a==="del"){if(!ed.sure){ed.sure=true;renderEdit();return}removeEntry(ed.id);closeEdit();toast("削除しました");return}
   else if(a==="save"){let patch={date:ed.date||ymd(today),memo:ed.memo.trim()||null};
     if(ed.type==="strength"){if(!ed.sets.length){toast("セットが0です。削除する場合は下のボタンから");return}
-      const sl=ed.sets.map(s=>({w:s.w??null,r:s.r??null}));const ws=sl.map(s=>s.w).filter(v=>v!=null);
+      const sl=ed.sets.map(s=>{const z={w:s.w??null,r:s.r??null};if(s.rir!=null)z.rir=s.rir;return z});const ws=sl.map(s=>s.w).filter(v=>v!=null);
       Object.assign(patch,{set_list:sl,sets:sl.length,weight:ws.length?Math.max(...ws):null,reps:sl.map(s=>s.r??"?").join(",")});
     }else{Object.assign(patch,{min:parseFloat(ed.min)||0,km:parseFloat(ed.km)||0,place:ed.place})}
     updateEntry(ed.id,patch);closeEdit();toast("更新しました");return}
@@ -561,7 +570,7 @@ function buildConsult(){const since=new Date();since.setDate(since.getDate()-42)
   t+="（ルール：3セット全部で15回できたら次回1段階上げる／セット間休憩"+tLen+"秒）\n\n";
   Object.keys(byDate).forEach(d=>{t+="■ "+d+"\n";byDate[d].forEach(x=>{
     t+=x.type==="run"?`- ラン ${x.min}分 ${x.km}km ${x.place||""}${x.memo?"（"+x.memo+"）":""}\n`
-      :`- ${x.exercise}：${fmtSet(x)}${x.memo?"（メモ："+x.memo+"）":""}\n`})});
+      :`- ${x.exercise}：${fmtSet(x)}${rirWords(x)?"（"+rirWords(x)+"）":""}${x.memo?"（メモ："+x.memo+"）":""}\n`})});
   const notes=rows.filter(x=>x.memo);
   if(notes.length)t+="\n【メモがある記録】\n"+notes.map(x=>`${x.date.slice(5)} ${x.exercise||"ラン"}：${x.memo}`).join("\n")+"\n";
   return t}

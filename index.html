@@ -209,6 +209,10 @@ a.btn{display:block;text-align:center;text-decoration:none;box-sizing:border-box
 .chart{width:100%;height:auto;display:block;margin-top:6px}.chart text{fill:#7d7f88;font-size:9px;font-family:"Jost",sans-serif}
 .tips{list-style:none;padding:8px 10px}
 .tips li{padding:3px 0}.tips li.memo{color:#ffe0b2}.tips li.up{color:#a5d6a7}.tips li.warn{color:#ffcc80}.tips li.std{color:#c9cbd1}
+.rir{display:flex;gap:6px;margin:6px 0 4px 36px}
+.rir button{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;border-radius:10px;border:1px solid var(--line);background:none;color:var(--tx);font-size:12px}
+.rir button small{font-size:10px;color:var(--mu)}
+.rir button.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}.rir button.on small{color:#555}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);z-index:20;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
 #toast.on{opacity:1}
 </style>
