@@ -107,12 +107,12 @@ const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const today=new Date();
 let entries=[],ready=false,saving=false;
 const MENU=[
-  {name:"レッグプレス",part:"脚",uni:true,max:60},
-  {name:"ラットプルダウン",part:"背中"},
-  {name:"チェストプレス",part:"胸"},
   {name:"ショルダープレス",part:"肩"},
+  {name:"チェストプレス",part:"胸"},
+  {name:"ラットプルダウン",part:"背中"},
   {name:"アブベンチ",part:"腹・体幹",bw:true},
-  {name:"プランク",part:"腹・体幹",bw:true,sec:true,target:30}
+  {name:"プランク",part:"腹・体幹",bw:true,sec:true,target:30},
+  {name:"レッグプレス",part:"脚",uni:true,max:60}
 ];
 const MSTEP=5,TARGET=15;
 const menuSt={};
