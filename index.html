@@ -172,6 +172,7 @@ small.lbl{display:block;color:var(--mu);font-size:11px;margin:14px 0 6px}
 .cal>div.today{background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1.5px var(--tx);position:relative}
 .cal>div.today .d{display:inline-block;min-width:22px;padding:2px 6px;border-radius:999px;background:var(--tx);color:var(--bg);font-weight:500}
 .cal>div.today::after{content:"TODAY";position:absolute;left:0;right:0;bottom:3px;font-family:"Jost";font-size:7px;letter-spacing:.15em;color:var(--tx)}
+a.btn{display:block;text-align:center;text-decoration:none;box-sizing:border-box}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);z-index:20;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
 #toast.on{opacity:1}
 </style>
@@ -263,8 +264,10 @@ small.lbl{display:block;color:var(--mu);font-size:11px;margin:14px 0 6px}
   <div class="sethead"><button class="back" id="setBack">‹ ホーム</button><b>設定</b><span></span></div>
   <div class="sec" style="margin-top:22px">
     <div class="sech"><span>ASK CLAUDE — 相談</span></div>
-    <button class="btn ghost" id="consult">Claudeに相談用にコピー（直近6週間）</button>
-    <div class="hint">記録とメモを文章にしてコピーします。Claudeのチャットに貼り付けて相談できます。SupabaseをつないだClaudeなら「記録見て」と頼むだけでも読めます。</div>
+    <a class="btn" id="askApp" href="claude://claude.ai/new">Claudeアプリでアドバイスをもらう</a>
+    <div class="hint">Claudeが開いて、相談の文章が入力された状態になります。送信するとClaudeがSupabaseの記録を読んで答えます。<a id="askWeb" href="https://claude.ai/new" target="_blank" rel="noopener" style="color:var(--mu)">ブラウザ版で開く</a></div>
+    <button class="btn ghost" id="consult" style="margin-top:14px">記録を文章でコピー（直近6週間）</button>
+    <div class="hint">Supabaseとつないでいないチャットで相談するときは、こちらをコピーして貼り付けてください。</div>
   </div>
   <div class="sec">
     <div class="sech"><span>BACKUP — バックアップ</span></div>
