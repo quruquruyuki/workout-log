@@ -161,11 +161,14 @@ function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clear
 function setStatus(t){const s=$("status");if(t){s.textContent=t;s.classList.remove("hidden")}else s.classList.add("hidden")}
 
 /* ---------- routing ---------- */
+let curView=null;const scrollMem={};
 function route(){if(!session)return;setTimeout(renderElapsed,0);const v=location.hash==="#log"?"log":location.hash==="#settings"?"settings":"month";
+  if(curView&&curView!==v)scrollMem[curView]=window.scrollY;const same=curView===v;curView=v;
   $("v-settings").classList.toggle("hidden",v!=="settings");
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
   $("v-log").classList.toggle("hidden",v!=="log");$("saveBar").classList.toggle("hidden",v!=="log");$("v-month").classList.toggle("hidden",v!=="month");
-  if(v==="month")renderMonth();window.scrollTo(0,0)}
+  if(v==="month")renderMonth();
+  if(!same){const y=scrollMem[v]||0;requestAnimationFrame(()=>window.scrollTo(0,y))}}
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{location.hash=b.dataset.v});
 window.addEventListener("hashchange",route);
 $("gear").onclick=()=>{location.hash="settings"};
@@ -283,7 +286,7 @@ $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");
     renderMenu();return}
   const o=menuSt[m.name];if(!o)return;
   if(a==="rir"){const s=o.sets[i];const v=+b.dataset.v;s.rir=s.rir===v?null:v;renderMenu();
-    if(s.rir!=null&&tEnd){const len=RIR_REST[s.rir];tCur=len;tNote=`${rirOf(s.rir).l}→${len}秒`;tEnd=tStart+len*1000;renderTimer()}
+    if(s.rir!=null&&tEnd&&rirRest){const len=RIR_REST[s.rir];tCur=len;tNote=`${rirOf(s.rir).l}→${len}秒`;tEnd=tStart+len*1000;renderTimer()}
     return}
   if(a==="done"){sessMark();const s=o.sets[i];s.done=!s.done;if(!s.done)delete s.rir;renderMenu();
     if(s.done){const left=o.sets.some(x=>!x.done)||curMenu().some(x=>menuSt[x.name]&&menuSt[x.name].sets.some(y=>!y.done));if(left)startTimer()}return}
@@ -547,8 +550,8 @@ $("sheet").addEventListener("input",e=>{const t=e.target,f=t.dataset.ef;if(!f||!
   if(f==="w"||f==="r"){const v=parseFloat(t.value);ed.sets[+t.dataset.i][f]=isNaN(v)?null:v}else ed[f]=t.value});
 
 /* ---------- rest timer ---------- */
-let tEnd=0,tTick=null,tLen=90,tDone=false,actx=null,wlock=null;
-try{tLen=+localStorage.getItem("wl_rest")||90}catch(_){}
+let tEnd=0,tTick=null,tLen=90,tDone=false,actx=null,wlock=null,rirRest=true;
+try{tLen=+localStorage.getItem("wl_rest")||90;rirRest=localStorage.getItem("wl_rirrest")!=="0"}catch(_){}
 function unlockAudio(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume()}catch(_){}}
 function beep(){if(!actx)return;[0,0.2,0.4,0.6].forEach(t=>{const o=actx.createOscillator(),g=actx.createGain();o.type="square";o.frequency.value=t%0.4?1320:990;o.connect(g);g.connect(actx.destination);
   const at=actx.currentTime+t;g.gain.setValueAtTime(0.0001,at);g.gain.exponentialRampToValueAtTime(0.5,at+0.01);g.gain.exponentialRampToValueAtTime(0.0001,at+0.16);o.start(at);o.stop(at+0.2)})}
@@ -577,9 +580,14 @@ function tick(){if(!tEnd)return;const left=(tEnd-Date.now())/1000;
   $("timer").classList.toggle("soon",left<=5);
   renderTimer()}
 function stopTimer(){tEnd=0;tDone=false;clearInterval(tTick);alarmOff();keepAwake(false);$("timer").classList.remove("soon");renderTimer()}
-function renderRestChips(){$("restSeg").innerHTML=[60,90,120].map(v=>`<button class="chip ${v===tLen?"on":""}" data-r="${v}">${v}秒</button>`).join("")+`<button class="chip" data-r="go">⏱ スタート</button>`}
+function renderRestChips(){$("restSeg").innerHTML=[60,90,120].map(v=>`<button class="chip ${v===tLen?"on":""}" data-r="${v}">${v}秒</button>`).join("")+`<button class="chip" data-r="go">⏱ スタート</button>`
+  +`<button class="rmode" data-r="mode"><span>${rirRest?"😌😤🔥に合わせて休憩を変える":"休憩は毎回"+tLen+"秒で固定（時短）"}</span><b class="rsw ${rirRest?"on":""}"></b></button>`;
+  $("restHint").textContent=rirRest?"セット番号をタップして ✓ にすると休憩タイマーが始まり、きつさを選ぶと 😌余裕90秒・😤ギリギリ120秒・🔥限界150秒 に自動で切り替わります。":"きつさを選んでも休憩は"+tLen+"秒のまま。きつさは記録として残り、次回の目安に使われます。"}
 $("restSeg").onclick=e=>{const b=e.target.closest("button");if(!b)return;
   if(b.dataset.r==="go"){startTimer();return}
+  if(b.dataset.r==="mode"){rirRest=!rirRest;try{localStorage.setItem("wl_rirrest",rirRest?"1":"0")}catch(_){}
+    if(!rirRest&&tEnd&&tCur!==tLen){tEnd=tStart+tLen*1000;tCur=tLen;tNote="";renderTimer()}
+    renderRestChips();toast(rirRest?"余裕度に合わせて休憩を変えます":"休憩を"+tLen+"秒で固定しました");return}
   tLen=+b.dataset.r;try{localStorage.setItem("wl_rest",tLen)}catch(_){}
   if(tEnd)startTimer(tLen);else renderRestChips()};
 $("timer").onclick=e=>{const b=e.target.closest("button");if(!b)return;
@@ -689,7 +697,7 @@ let signUpMode = false;
 function showApp(on) {
   $("auth").classList.toggle("hidden", on);
   $("nav").classList.toggle("hidden", !on);
-  if (on) route(); else { $("v-log").classList.add("hidden"); $("v-month").classList.add("hidden"); $("v-settings").classList.add("hidden"); $("saveBar").classList.add("hidden"); }
+  if (on) route(); else { curView = null; $("v-log").classList.add("hidden"); $("v-month").classList.add("hidden"); $("v-settings").classList.add("hidden"); $("saveBar").classList.add("hidden"); }
 }
 $("authSwitch").onclick = () => {
   signUpMode = !signUpMode;
@@ -753,7 +761,7 @@ async function onSession(s) {
   session = s;
   if (!s) { entries = []; server = []; pending = []; ready = false; showApp(false); return; }
   $("who").textContent = s.user.email || "";
-  showApp(true);
+  if (changed || !$("auth").classList.contains("hidden")) showApp(true);
   if (changed) { await load(); loadBody(); }
   applyRunIn(); applyBodyIn();
 }
