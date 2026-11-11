@@ -114,10 +114,10 @@ const MENUS={machine:[
   {name:"レッグプレス",part:"脚",uni:true,max:60},
   {name:"プランク",part:"腹・体幹",bw:true,sec:true,target:30}
 ],db:[
-  {name:"サイドレイズ",part:"肩",step:1,uni:"片手",max:10,start:2},
-  {name:"ワンハンドロウ",part:"背中",step:1,uni:"片手",max:10,start:6},
-  {name:"ダンベルカール",part:"腕",step:1,uni:"片手",max:10,start:4},
-  {name:"フレンチプレス",part:"腕",step:1,max:10,start:5}
+  {name:"サイドレイズ",part:"肩",step:1,uni:"片手",max:10,start:3,dbset:"軽い方"},
+  {name:"ワンハンドロウ",part:"背中",step:1,uni:"片手",max:10,start:6,dbset:"重い方"},
+  {name:"ダンベルカール",part:"腕",step:1,uni:"片手",max:10,start:6,dbset:"重い方"},
+  {name:"フレンチプレス",part:"腕",step:1,max:10,start:6,dbset:"重い方"}
 ]};
 const TIPS={"ショルダープレス": ["グリップが肩の高さかやや下に来るようにシートを調整", "腰と背もたれの間にすき間ができたら、そのセットは中止", "肩を下げたまま押し、肘は伸ばしきらない"], "チェストプレス": ["肩甲骨を寄せて胸を張ったまま押す", "グリップは胸の中央の高さ", "戻すときは2〜3秒かけてゆっくり"], "ラットプルダウン": ["セット前に肩甲骨を下げる動きを10回", "手は軽く握り、肘を腰のポケットに下ろすイメージ", "一番下で1秒止めて、脇の下に効いていればOK"], "アブベンチ": ["足をパッドに引っかけない", "肩甲骨が浮くところ（30〜45度）まで", "腰をパッドに押しつけたまま、息を吐きながら丸める"], "レッグプレス": ["膝が内側に入らないように", "膝は伸ばしきらない", "上限に達したら、下ろすのに3秒かける"], "プランク": ["頭からかかとまで一直線", "お尻が下がって腰が反るのはNG", "呼吸は止めない"], "サイドレイズ": ["肘を軽く曲げ、肩の高さまで", "肩をすくめない・反動を使わない", "下ろすのに2〜3秒"], "ワンハンドロウ": ["背中をまっすぐ、床と平行に近く", "肘を腰のポケットに向かって引く", "体をひねらない・腰を丸めない"], "ダンベルカール": ["肘を体の横に固定", "体を反らせて反動を使わない", "上で一瞬締めて、ゆっくり下ろす"], "フレンチプレス": ["背もたれのある椅子に座って", "肘を天井に向け、外に開かない", "二の腕の裏が伸びる感覚を確認"]};
 const ALLM=[...MENUS.machine,...MENUS.db];
@@ -126,7 +126,11 @@ const curMenu=()=>MENUS[st.type]||[];
 const findM=n=>ALLM.find(x=>x.name===n);
 const uniLabel=m=>m&&m.uni?(m.uni===true?"片脚":m.uni):"";
 const stepOf=(n,w)=>{const m=findM(n);const st_=m&&m.step?m.step:(n&&/ダンベル|レイズ|カール|フレンチ|キックバック|ゴブレット|ブルガリアン|ワンハンド/.test(n)?1:5);return w!=null&&w<5&&st_>1?1:st_};
-const MSTEP=5,TARGET=15;
+const MSTEP=5,TARGET=15,DB_TOP=20;
+/* 可変ダンベル：棒1kg＋重り（1kg×4・1.5kg×4・2kg×4）。左右対称に付けるので2kgは作れない */
+const PLATE={3:"1",4:"1.5",5:"2",6:"1.5＋1",7:"2＋1",8:"2＋1.5",9:"2＋2",10:"2＋1.5＋1"};
+const plateText=w=>w===1?"棒だけ":PLATE[w]?`片側 ${PLATE[w]}kg`:"";
+const isDb=m=>MENUS.db.includes(m);
 const RIR=[{v:3,e:"😌",l:"余裕",d:"あと3回以上"},{v:1,e:"😤",l:"ギリギリ",d:"あと1〜2回"},{v:0,e:"🔥",l:"限界",d:"あと0回"}];
 const rirOf=v=>RIR.find(x=>x.v===v);
 const RIR_REST={3:90,1:120,0:150};
@@ -225,11 +229,16 @@ function fmtSet(x){const sl=setsOf(x);
   return (x.unilateral?(uniLabel(findM(x.exercise))||"片脚"):"")+txt}
 function nextPlan(m){const l=lastOf(m.name);const sl=l&&setsOf(l);
   const tgt=m.target||TARGET;
-  if(!sl)return{w:m.start??null,n:3,label:l?"前回はセット別の記録なし":m.start?`はじめて：まず${m.start}kgで`:"はじめての記録",up:false,base:l};
+  if(!sl)return{w:m.start??null,n:3,label:l?"前回はセット別の記録なし":m.start?`はじめて：まず${m.start}kg（${m.dbset}・${plateText(m.start)}）`:"はじめての記録",up:false,base:l};
   const ws=sl.map(s=>s.w).filter(v=>v!=null);const mx=ws.length?Math.max(...ws):null;
   const allTop=sl.length>=3&&sl.every(s=>(s.w??null)===mx&&s.r!=null&&s.r>=tgt);
   if(m.bw)return{w:null,n:Math.max(3,sl.length),label:allTop?(m.sec?"目標クリア。秒数を少し延ばしてもOK":"目標クリア。ゆっくり丁寧に"):`${tgt}${m.sec?"秒":"回"}×3を目指す`,up:allTop,base:l};
   if(mx==null)return{w:null,n:3,label:"重さを入れて記録",up:false,base:l};
+  if(isDb(m)){const top=sl.length>=3&&sl.every(s=>(s.w??null)===mx&&s.r!=null&&s.r>=DB_TOP);
+    if(top&&mx<m.max){let nw=mx+1;if(nw===2)nw=3;return{w:nw,n:3,label:`20回×3クリア → ${nw}kg（${plateText(nw)}）。${m.dbset}の種目がそろったら上げる`,up:true,base:l}}
+    if(top)return{w:mx,n:3,label:`上限${mx}kg。下ろすのに3秒かけて負荷アップ`,up:false,base:l};
+    const tot=sl.reduce((a,s)=>a+(s.r||0),0);
+    return{w:mx,n:3,label:`${mx}kgで前回（計${tot}回）より1回でも多く。20回×3で+1kg`,up:false,base:l}}
   const allEasy=sl.length>=3&&sl.every(s=>s.rir===3);
   if(allTop){let nw=mx+(m.step||MSTEP);let note="";if(m.max&&nw>m.max){nw=m.max;note=MENUS.db.includes(m)?"（ダンベル上限）":"（マシン上限）"}
     return nw>mx?{w:nw,n:3,label:`上げどき → ${nw}kg${allEasy?"（前回は全セット余裕）":""}`,up:true,base:l}:{w:mx,n:3,label:MENUS.db.includes(m)?`上限${mx}kg。回数を20回まで増やしていく`:`上限${mx}kg。下ろすのに3秒かけて負荷アップ`,up:false,base:l}}
@@ -269,7 +278,8 @@ $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");
       const l=lastOf(m.name);const sl=l&&setsOf(l);
       const n=Math.max(3,sl?sl.length:0);
       const lw=i=>{if(m.bw)return null;if(sl){const s=sl[Math.min(i,sl.length-1)];return s.w??null}return l?(l.weight??null):(m.start??null)};
-      menuSt[m.name]={sets:Array.from({length:n},(_,i)=>({w:lw(i),r:tgt})),memo:""}}
+      const lr=i=>{if(!isDb(m)||!sl)return tgt;const s=sl[Math.min(i,sl.length-1)];return Math.min(DB_TOP,Math.max(tgt,s.r||tgt))};
+      menuSt[m.name]={sets:Array.from({length:n},(_,i)=>({w:lw(i),r:lr(i)})),memo:""}}
     renderMenu();return}
   const o=menuSt[m.name];if(!o)return;
   if(a==="rir"){const s=o.sets[i];const v=+b.dataset.v;s.rir=s.rir===v?null:v;renderMenu();
@@ -281,7 +291,7 @@ $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");
   if(a==="add"){const last=o.sets[o.sets.length-1]||{w:null,r:m.target||TARGET};o.sets.push({w:last.w,r:last.r})}
   else if(a==="rm"){o.sets.splice(i,1);if(!o.sets.length)delete menuSt[m.name]}
   else{const s=o.sets[i];const d=a.endsWith("+")?1:-1;
-    if(a[0]==="w"){const old=s.w;s.w=Math.max(0,(s.w||0)+d*stepOf(m.name,s.w))||null;if(m.max&&s.w>m.max)s.w=m.max;
+    if(a[0]==="w"){const old=s.w;s.w=Math.max(0,(s.w||0)+d*stepOf(m.name,s.w))||null;if(m.max&&s.w>m.max)s.w=m.max;if(isDb(m)&&s.w===2)s.w=d>0?3:1;
       for(let k=i+1;k<o.sets.length;k++){if(o.sets[k].w===old&&!o.sets[k].done)o.sets[k].w=s.w;else break}}
     else{s.r=Math.max(0,(s.r||0)+d*(m.sec?5:1))}
     if(navigator.vibrate)try{navigator.vibrate(8)}catch(_){}}
