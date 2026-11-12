@@ -656,6 +656,7 @@ $("consult").onclick=async()=>{const t=buildConsult();
 
 /* ---------- body metrics（体重・体脂肪率） ---------- */
 const BODY_GOAL={w:[71,72],f:[18,19]};
+const SHOW_FAT=false; /* 体脂肪率はヘルスケアから取れないので非表示（データは残している） */
 let body=[];
 const n1=v=>v==null||v===""||isNaN(+v)?null:Math.round(+v*10)/10;
 async function loadBody(){try{body=JSON.parse(localStorage.getItem(lsKey("body"))||"[]")}catch(_){}
@@ -666,7 +667,7 @@ async function loadBody(){try{body=JSON.parse(localStorage.getItem(lsKey("body")
 function renderBodyArea(){if(!$("v-month").classList.contains("hidden"))renderMonth()}
 async function saveBody(rec){const ex=body.find(b=>b.date===rec.date);const row={id:ex?ex.id:uuid(),date:rec.date,weight:n1(rec.weight),fat:n1(rec.fat),memo:rec.memo||null};
   body=body.filter(b=>b.date!==row.date).concat(row).sort((a,b)=>a.date.localeCompare(b.date));lsSet("body",body);renderBodyArea();
-  const {error}=await sb.from("body_metrics").upsert(row);if(error){console.warn(error);toast("保存できませんでした。通信を確認してもう一度お試しください")}else toast("体重・体脂肪率を記録しました")}
+  const {error}=await sb.from("body_metrics").upsert(row);if(error){console.warn(error);toast("保存できませんでした。通信を確認してもう一度お試しください")}else toast(SHOW_FAT?"体重・体脂肪率を記録しました":"体重を記録しました")}
 async function delBody(date){const ex=body.find(b=>b.date===date);if(!ex)return;body=body.filter(b=>b.date!==date);lsSet("body",body);renderBodyArea();
   const {error}=await sb.from("body_metrics").delete().eq("id",ex.id);toast(error?"削除できませんでした":"削除しました")}
 function lineSvg(pts,band,unit){if(!pts.length)return"";const W=330,H=130,L=34,R=10,T=10,B=22;
@@ -679,29 +680,29 @@ function lineSvg(pts,band,unit){if(!pts.length)return"";const W=330,H=130,L=34,R
     <polyline fill="none" stroke="#ececef" stroke-width="2" stroke-linejoin="round" points="${pts.map(p=>X(p.d)+","+Y(p.v)).join(" ")}"/>
     ${pts.map(p=>`<circle cx="${X(p.d)}" cy="${Y(p.v)}" r="3" fill="#0e0f12" stroke="#ececef" stroke-width="2"/>`).join("")}
     ${ix.map(i=>`<text x="${X(pts[i].d)}" y="${H-6}" text-anchor="middle">${pts[i].d.slice(5).replace("-","/")}</text>`).join("")}</svg>`}
-function bodyHtml(){let h=`<div class="sec"><div class="sech"><span>BODY — 体重・体脂肪率</span><button class="mini" data-body="new">＋ 記録</button></div>`;
+function bodyHtml(){let h=`<div class="sec"><div class="sech"><span>BODY — ${SHOW_FAT?"体重・体脂肪率":"体重"}</span><button class="mini" data-body="new">＋ 記録</button></div>`;
   if(!body.length)return h+`<div class="empty">まだ記録がありません</div></div>`;
   const W=body.filter(b=>b.weight!=null).map(b=>({d:b.date,v:b.weight})),F=body.filter(b=>b.fat!=null).map(b=>({d:b.date,v:b.fat}));
-  const last=body[body.length-1];const dl=(a)=>a.length>1?Math.round((a[a.length-1].v-a[0].v)*10)/10:null;
+  const last=SHOW_FAT?body[body.length-1]:(body.filter(b=>b.weight!=null).pop()||body[body.length-1]);const dl=(a)=>a.length>1?Math.round((a[a.length-1].v-a[0].v)*10)/10:null;
   const dw=dl(W),df=dl(F);const sg=v=>v==null?"":(v>0?"+":"")+v;
-  h+=`<div class="stats"><div><b>${W.length?W[W.length-1].v:"-"}<i>kg</i></b><span>体重 ${dw!=null?sg(dw)+"kg":""}</span></div><div><b>${F.length?F[F.length-1].v:"-"}<i>%</i></b><span>体脂肪率 ${df!=null?sg(df)+"%":""}</span></div><div><b>${last.date.slice(5).replace("-","/")}</b><span>最終記録</span></div></div>
+  h+=`<div class="stats"><div><b>${W.length?W[W.length-1].v:"-"}<i>kg</i></b><span>体重 ${dw!=null?sg(dw)+"kg":""}</span></div>${SHOW_FAT?`<div><b>${F.length?F[F.length-1].v:"-"}<i>%</i></b><span>体脂肪率 ${df!=null?sg(df)+"%":""}</span></div>`:""}<div><b>${last.date.slice(5).replace("-","/")}</b><span>最終記録</span></div></div>
     <div class="hint">増減は最初の記録（${body[0].date.slice(5).replace("-","/")}）から</div>`;
   if(W.length)h+=`<div class="cap" style="margin-top:14px">体重（kg）</div>${lineSvg(W,BODY_GOAL.w,"kg")}`;
-  if(F.length)h+=`<div class="cap" style="margin-top:10px">体脂肪率（%）</div>${lineSvg(F,BODY_GOAL.f,"%")}`;
-  h+=`<div class="blist">${body.slice(-5).reverse().map(b=>`<button data-body="${b.date}"><span>${b.date.slice(5).replace("-","/")}</span><span>${b.weight??"-"}kg</span><span>${b.fat??"-"}%</span></button>`).join("")}</div></div>`;
+  if(SHOW_FAT&&F.length)h+=`<div class="cap" style="margin-top:10px">体脂肪率（%）</div>${lineSvg(F,BODY_GOAL.f,"%")}`;
+  h+=`<div class="blist">${body.slice(-5).reverse().map(b=>`<button data-body="${b.date}"><span>${b.date.slice(5).replace("-","/")}</span><span>${b.weight??"-"}kg</span>${SHOW_FAT?`<span>${b.fat??"-"}%</span>`:""}</button>`).join("")}</div></div>`;
   return h}
 function openBody(pref){const d=pref&&pref.date||ymd(new Date());const ex=body.find(b=>b.date===d)||{};
   const w=pref&&pref.weight!=null?pref.weight:ex.weight,f=pref&&pref.fat!=null?pref.fat:ex.fat;
-  $("chartBody").innerHTML=`<div class="shh"><b>体重・体脂肪率</b><button class="x" id="chartClose">✕</button></div>
-    ${pref&&pref.fromShortcut?`<div class="hint">ヘルスケアから読み込みました。確認して「記録する」を押してください。${pref.stale?"<br>体脂肪率は古いデータだったので空欄にしています。":""}</div>`:""}
+  $("chartBody").innerHTML=`<div class="shh"><b>${SHOW_FAT?"体重・体脂肪率":"体重"}</b><button class="x" id="chartClose">✕</button></div>
+    ${pref&&pref.fromShortcut?`<div class="hint">ヘルスケアから読み込みました。確認して「記録する」を押してください。${pref.stale&&SHOW_FAT?"<br>体脂肪率は古いデータだったので空欄にしています。":""}</div>`:""}
     <small class="lbl">日付</small><input type="date" id="bDate" value="${d}">
-    <div class="row" style="margin-top:6px"><div><small class="lbl">体重（kg）</small><input id="bW" inputmode="decimal" value="${w??""}"></div><div><small class="lbl">体脂肪率（%）</small><input id="bF" inputmode="decimal" value="${f??""}"></div></div>
+    <div class="row" style="margin-top:6px"><div><small class="lbl">体重（kg）</small><input id="bW" inputmode="decimal" value="${w??""}"></div>${SHOW_FAT?`<div><small class="lbl">体脂肪率（%）</small><input id="bF" inputmode="decimal" value="${f??""}"></div>`:`<input id="bF" type="hidden" value="${ex.fat??""}">`}</div>
     <button class="btn" data-body="save">記録する</button>
     ${ex.id?`<button class="btn ghost" data-body="del" style="margin-top:10px">この日の記録を削除</button>`:""}`;
   $("chartSheet").classList.remove("hidden");document.body.style.overflow="hidden"}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-body]");if(!b)return;const k=b.dataset.body;
   if(k==="new"){openBody();return}
-  if(k==="save"){const w=n1($("bW").value),f=n1($("bF").value);if(w==null&&f==null){toast("体重か体脂肪率を入れてください");return}
+  if(k==="save"){const w=n1($("bW").value),f=n1($("bF").value);if(w==null&&f==null){toast(SHOW_FAT?"体重か体脂肪率を入れてください":"体重を入れてください");return}
     saveBody({date:$("bDate").value||ymd(new Date()),weight:w,fat:f});closeChart();return}
   if(k==="del"){if(!b.dataset.sure){b.dataset.sure="1";b.textContent="本当に削除する";return}delBody($("bDate").value);closeChart();return}
   if(/^\d{4}-/.test(k))openBody({date:k})});
