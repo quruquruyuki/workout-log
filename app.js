@@ -344,11 +344,20 @@ $("save").onclick=async()=>{if(!ready)return;let data;
   }catch(e){toast("保存できませんでした。もう一度お試しください")}
   saving=false;updateSave();renderEx()};
 
-function renderDay(){const d=$("date").value;const list=entries.filter(x=>x.date===d).sort((a,b)=>a.ts.localeCompare(b.ts));
-  const dm=dayMinutes(list);
-  $("dayCap").textContent=`${d.slice(5).replace("-","/")} の記録`+(dm?`　⏱ ${dm}分`:"");
-  $("dayList").innerHTML=list.length?list.map(x=>`<div class="item"><div class="t"><div>${x.type==="run"?"🏃 ラン":"🏋️ "+esc(x.exercise)}${x._pend?'<span class="pend">未送信</span>':""}</div><div>${x.type==="run"?`${x.min}分・${x.km}km・${esc(x.place)}${x.memo?"　"+esc(x.memo):""}`:esc(x.part)+"　"+esc(fmtSet(x))+(rirText(x)?"　"+rirText(x):"")+(x.memo?"　"+esc(x.memo):"")}</div></div><button class="del" data-id="${x.id}">編集</button></div>`).join(""):`<div class="empty">まだ記録はありません</div>`}
-$("dayList").onclick=e=>{const it=e.target.closest(".item");if(!it)return;const b=it.querySelector(".del");if(b)openEdit(b.dataset.id)};
+/* ---------- その日の記録（ホームのカレンダーからポップアップ） ---------- */
+let dayOpen=null;
+function dayItems(d){const list=entries.filter(x=>x.date===d).sort((a,b)=>a.ts.localeCompare(b.ts));
+  return list.length?list.map(x=>`<div class="item"><div class="t"><div>${x.type==="run"?"🏃 ラン":"🏋️ "+esc(x.exercise)}${x._pend?'<span class="pend">未送信</span>':""}</div><div>${x.type==="run"?`${x.min}分・${x.km}km・${esc(x.place)}${x.memo?"　"+esc(x.memo):""}`:esc(x.part)+"　"+esc(fmtSet(x))+(rirText(x)?"　"+rirText(x):"")+(x.memo?"　"+esc(x.memo):"")}</div></div><button class="del" data-edit="${x.id}">編集</button></div>`).join(""):`<div class="empty">この日の記録はありません</div>`}
+function openDay(d){dayOpen=d;const list=entries.filter(x=>x.date===d);const dm=dayMinutes(list);const dt=new Date(d+"T00:00:00");
+  $("chartBody").innerHTML=`<div class="shh"><b>${dt.getMonth()+1}/${dt.getDate()}（${"日月火水木金土"[dt.getDay()]}）の記録${dm?`<small style="font-weight:400;color:var(--mu);margin-left:8px">⏱ ${dm}分</small>`:""}</b><button class="x" id="chartClose">✕</button></div>
+    <div class="list">${dayItems(d)}</div>
+    <button class="btn ghost" data-dayadd="${d}" style="margin-top:14px">＋ この日に記録する</button>`;
+  $("chartSheet").classList.remove("hidden");document.body.style.overflow="hidden"}
+function renderDay(){if(dayOpen&&!$("chartSheet").classList.contains("hidden"))openDay(dayOpen)}
+$("chartSheet").addEventListener("click",e=>{const ed=e.target.closest("[data-edit]");
+  if(ed){const keep=dayOpen;$("chartSheet").classList.add("hidden");openEdit(ed.dataset.edit);dayOpen=keep;dayBack=true;return}
+  const ad=e.target.closest("[data-dayadd]");if(ad){$("date").value=ad.dataset.dayadd;syncQuick();closeChart();location.hash="log"}});
+let dayBack=false;
 
 /* ---------- month ---------- */
 $("prevM").onclick=()=>{st.m--;if(st.m<0){st.m=11;st.y--}renderMonth()};
@@ -423,6 +432,7 @@ function renderMonth(){const y=st.y,m=st.m,key=mkey(y,m);
     h+=`<div class="${s?"act":""}${k===tk?" today":""}" data-day="${k}"><div class="d">${d}</div><div class="ic">${s?(s.has("strength")?"🏋️":"")+(s.has("run")?"🏃":""):""}</div></div>`}
   const rest=(7-(first+nd)%7)%7;for(let i=0;i<rest;i++)h+=`<div class="out"></div>`;
   h+=`</div>`;
+  h+=`<div class="hint" style="margin-top:6px">日付をタップすると、その日の記録が見られます</div>`;
   h+=weekHtml();
   h+=bodyHtml();
 
@@ -509,14 +519,13 @@ function openChart(name){const list=entries.filter(x=>x.type==="strength"&&x.exe
     <div class="cap" style="margin-top:16px">履歴</div>
     ${pts.slice().reverse().map(p=>`<div class="item"><div class="t"><div>${p.d.slice(5).replace("-","/")}　${esc(fmtSet(p.x))}${rirText(p.x)?"　"+rirText(p.x):""}</div>${p.x.memo?`<div>${esc(p.x.memo)}</div>`:""}</div></div>`).join("")}`;
   $("chartSheet").classList.remove("hidden");document.body.style.overflow="hidden"}
-function closeChart(){$("chartSheet").classList.add("hidden");document.body.style.overflow=""}
+function closeChart(){$("chartSheet").classList.add("hidden");document.body.style.overflow="";dayOpen=null}
 $("chartSheet").addEventListener("click",e=>{if(e.target.id==="chartSheet"||e.target.id==="chartClose")closeChart()});
 
 /* ---------- calendar -> day ---------- */
 $("monthBody").addEventListener("click",e=>{const ex=e.target.closest("[data-ex]");if(ex){openChart(ex.dataset.ex);return}
   const c=e.target.closest("[data-day]");if(!c)return;
-  $("date").value=c.dataset.day;syncQuick();renderDay();location.hash="log";
-  setTimeout(()=>$("dayCap").scrollIntoView({behavior:"smooth",block:"start"}),60)});
+  openDay(c.dataset.day)});
 
 /* ---------- edit sheet ---------- */
 let ed=null;
@@ -526,7 +535,8 @@ function openEdit(id){const x=entries.find(e=>e.id===id);if(!x)return;
     sets:x.type==="strength"?(setsOf(x)?setsOf(x).map(s=>({w:s.w,r:s.r,rir:s.rir??null})):Array.from({length:x.sets||1},()=>({w:x.weight??null,r:parseInt(x.reps,10)||null}))):[],
     sec:x.exercise==="プランク",sure:false};
   renderEdit();$("sheet").classList.remove("hidden");document.body.style.overflow="hidden"}
-function closeEdit(){ed=null;$("sheet").classList.add("hidden");document.body.style.overflow=""}
+function closeEdit(){ed=null;$("sheet").classList.add("hidden");document.body.style.overflow="";
+  if(dayBack&&dayOpen){dayBack=false;openDay(dayOpen)}else{dayBack=false}}
 function renderEdit(){if(!ed)return;const u=ed.sec?"秒":"回";
   let h=`<div class="shh"><b>${ed.type==="run"?"🏃 ラン":"🏋️ "+esc(ed.exercise)}</b><button class="x" data-e="close">✕</button></div>
   <small class="lbl">日付</small><input type="date" data-ef="date" value="${ed.date}">`;
