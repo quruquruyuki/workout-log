@@ -139,11 +139,25 @@ function rirText(x){const sl=setsOf(x);if(!sl||!sl.some(s=>s.rir!=null))return""
 function rirWords(x){const sl=setsOf(x);if(!sl||!sl.some(s=>s.rir!=null))return"";return "きつさ："+sl.map((s,i)=>`${i+1}セット目${s.rir!=null?rirOf(s.rir).l+"（"+rirOf(s.rir).d+"）":"未入力"}`).join("、")}
 /* --- session timing --- */
 function sessGet(){try{return JSON.parse(localStorage.getItem("wl_sess")||"null")}catch(_){return null}}
-function sessMark(){const d=ymd(new Date());const s=sessGet();
-  if(s&&s.d===d){if(s.end){delete s.end;try{localStorage.setItem("wl_sess",JSON.stringify(s))}catch(_){}renderElapsed()}return}
-  try{localStorage.setItem("wl_sess",JSON.stringify({d,t:new Date().toISOString()}))}catch(_){}renderElapsed()}
+const sessPut=s=>{try{localStorage.setItem("wl_sess",JSON.stringify(s))}catch(_){}};
+const SESS_IDLE=60*60*1000; /* 1時間なにもしなければ終了扱い */
+function sessMark(real){const d=ymd(new Date());let s=sessGet();const now=new Date().toISOString();
+  let old=null;if(s&&s.d===d&&s.end&&Date.now()-new Date(s.end)>SESS_IDLE){old=s;s=null} /* 終わってから時間が空いたら新しいトレーニング */
+  if(s&&s.d===d){if(s.end){s.prevEnd=s.end;delete s.end}}
+  else{s={d,t:now,fresh:true};if(old){delete old.prevSess;s.prevSess=old}}
+  s.last=now;if(real){delete s.fresh;delete s.prevEnd;delete s.prevSess}
+  sessPut(s);renderElapsed()}
+/* 種目を選んですぐ外した（何もしていない）ときは元に戻す */
+function sessUndo(){const s=sessGet();if(!s||Object.keys(menuSt).length)return;
+  if(s.fresh){if(s.prevSess)sessPut(s.prevSess);else localStorage.removeItem("wl_sess")}else if(s.prevEnd){s.end=s.prevEnd;delete s.prevEnd;sessPut(s)}
+  renderElapsed()}
+function sessAutoEnd(s){if(!s||s.end)return s;
+  const lastSave=entries.filter(e=>e.date===s.d&&e.type==="strength"&&e.created_at).map(e=>+new Date(e.created_at)).reduce((a,b)=>Math.max(a,b),0);
+  const last=Math.max(s.last?+new Date(s.last):+new Date(s.t),lastSave);
+  if(Date.now()-last>SESS_IDLE&&!Object.values(menuSt).some(o=>o.sets.some(x=>x.done))){s.end=new Date(Math.max(last,+new Date(s.t))).toISOString();delete s.fresh;delete s.prevEnd;delete s.prevSess;sessPut(s)}
+  return s}
 function sessStart(date){const s=sessGet();return s&&s.d===date?s.t:null}
-function renderElapsed(){const el=document.getElementById("elapsed");if(!el)return;const s=sessGet();
+function renderElapsed(){const el=document.getElementById("elapsed");if(!el)return;const s=sessAutoEnd(sessGet());
   if(!s||s.d!==ymd(new Date())){el.classList.add("hidden");return}
   const sec=Math.max(0,Math.floor(((s.end?new Date(s.end):Date.now())-new Date(s.t))/1000));
   const m=Math.floor(sec/60),ss=sec%60;
@@ -277,7 +291,7 @@ function renderMenu(){
   updateSave()}
 $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;
   const m=findM(b.dataset.m),a=b.dataset.a,i=+b.dataset.i;
-  if(a==="tg"){if(menuSt[m.name])delete menuSt[m.name];else{sessMark();const tgt=m.target||TARGET;
+  if(a==="tg"){if(menuSt[m.name]){const had=menuSt[m.name].sets.some(x=>x.done);delete menuSt[m.name];if(!had)sessUndo()}else{sessMark();const tgt=m.target||TARGET;
       const l=lastOf(m.name);const sl=l&&setsOf(l);
       const n=Math.max(3,sl?sl.length:0);
       const lw=i=>{if(m.bw)return null;if(sl){const s=sl[Math.min(i,sl.length-1)];return s.w??null}return l?(l.weight??null):(m.start??null)};
@@ -288,7 +302,7 @@ $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");
   if(a==="rir"){const s=o.sets[i];const v=+b.dataset.v;s.rir=s.rir===v?null:v;renderMenu();
     if(s.rir!=null&&tEnd&&rirRest){const len=RIR_REST[s.rir];tCur=len;tNote=`${rirOf(s.rir).l}→${len}秒`;tEnd=tStart+len*1000;renderTimer()}
     return}
-  if(a==="done"){sessMark();const s=o.sets[i];s.done=!s.done;if(!s.done)delete s.rir;renderMenu();
+  if(a==="done"){sessMark(true);const s=o.sets[i];s.done=!s.done;if(!s.done)delete s.rir;renderMenu();
     if(s.done){const left=o.sets.some(x=>!x.done)||curMenu().some(x=>menuSt[x.name]&&menuSt[x.name].sets.some(y=>!y.done));if(left)startTimer()}return}
   if(a==="fit"){const p=nextPlan(m);o.sets.forEach(x=>{if(!x.done)x.w=p.w});renderMenu();return}
   if(a==="add"){const last=o.sets[o.sets.length-1]||{w:null,r:m.target||TARGET};o.sets.push({w:last.w,r:last.r})}
@@ -310,7 +324,7 @@ function saveMenu(date){const list=menuOn();
     addEntry({type:"strength",date,part:m.part,exercise:m.name,unilateral:!!m.uni,set_list:sl,
       weight:ws.length?Math.max(...ws):null,reps:sl.map(s=>s.r??"?").join(","),sets:sl.length,memo:(o.memo||"").trim()||null});
     delete menuSt[m.name]});
-  if(!Object.keys(menuSt).length){const s_=sessGet();if(s_){s_.end=new Date().toISOString();try{localStorage.setItem("wl_sess",JSON.stringify(s_))}catch(_){}renderElapsed()}}
+  if(!Object.keys(menuSt).length){const s_=sessGet();if(s_){s_.end=new Date().toISOString();delete s_.fresh;delete s_.prevEnd;delete s_.prevSess;try{localStorage.setItem("wl_sess",JSON.stringify(s_))}catch(_){}renderElapsed()}}
   return list.length}
 
 $("save").onclick=async()=>{if(!ready)return;let data;
