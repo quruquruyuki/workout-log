@@ -36,3 +36,11 @@ grant select, insert, update, delete on public.workouts to authenticated;
 
 -- 追加（v3）：トレーニング開始時刻
 alter table public.workouts add column if not exists started_at timestamptz;
+
+-- v4: 休憩終了のプッシュ通知
+-- push_subs（端末ごとの通知の宛先）、rest_timers（いま動いている休憩タイマー）、
+-- app_secrets（VAPID鍵など。RLS有効・ポリシーなしでサーバー専用。値はリポジトリに置かない）
+create table if not exists public.push_subs (endpoint text primary key, user_id uuid not null default auth.uid() references auth.users(id) on delete cascade, p256dh text not null, auth text not null, created_at timestamptz not null default now());
+create table if not exists public.rest_timers (user_id uuid primary key default auth.uid() references auth.users(id) on delete cascade, timer_id uuid not null, fire_at timestamptz not null, note text, updated_at timestamptz not null default now());
+create table if not exists public.app_secrets (name text primary key, value text not null);
+-- RLS・ポリシー・grantは body_metrics と同じ形（app_secrets はポリシーなし＋anon/authenticatedからrevoke）
