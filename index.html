@@ -344,6 +344,11 @@ a.btn{display:block;text-align:center;text-decoration:none;box-sizing:border-box
     <label class="tgl"><span>フォームの注意点を常に表示<small>オフのときは、各種目10回まで・重さを上げる日・3週間以上ぶり・前回メモに違和感があるときだけ表示</small></span><input type="checkbox" id="tipsAlways"><i></i></label>
   </div>
   <div class="sec">
+    <div class="sech"><span>NOTIFY — 通知</span></div>
+    <label class="tgl"><span>休憩が終わったら通知する<small id="pushNote">画面を閉じていても、ロック中でも、休憩の終わりに通知が届きます</small></span><input type="checkbox" id="pushOn"><i></i></label>
+    <button class="btn ghost hidden" id="pushTest" style="margin-top:10px">テスト通知を送る</button>
+  </div>
+  <div class="sec">
     <div class="sech"><span>BACKUP — バックアップ</span></div>
     <button class="btn ghost" id="csv">全記録をCSVでコピー</button>
     <button class="btn ghost" id="csvDl" style="margin-top:10px">CSVファイルを保存</button>

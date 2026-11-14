@@ -582,7 +582,7 @@ function beep(){if(!actx)return;[0,0.2,0.4,0.6].forEach(t=>{const o=actx.createO
 async function keepAwake(on){try{if(on&&navigator.wakeLock&&!wlock){wlock=await navigator.wakeLock.request("screen");wlock.addEventListener("release",()=>wlock=null)}
   if(!on&&wlock){await wlock.release();wlock=null}}catch(_){}}
 function fmtT(sec){sec=Math.max(0,Math.ceil(sec));return Math.floor(sec/60)+":"+pad(sec%60)}
-function renderTimer(){const el=$("timer");if(!tEnd&&!tDone){el.classList.add("hidden");return}
+function renderTimer(){try{pushSync()}catch(_){}const el=$("timer");if(!tEnd&&!tDone){el.classList.add("hidden");return}
   el.classList.remove("hidden");const left=(tEnd-Date.now())/1000;
   el.classList.toggle("done",tDone);
   $("tTime").textContent=tDone?"0:00":fmtT(left);$("tLabel").textContent=tDone?"休憩終了！次のセットへ":"休憩中"+(tNote?`（${tNote}）`:"");
@@ -648,6 +648,45 @@ $("askApp").addEventListener("click",async e=>{const u=askUrl(),q=askPrompt();
   if(!u){$("askApp").href="https://claude.ai/new?q="+encodeURIComponent(q);return}
   $("askApp").href=u;
   try{await navigator.clipboard.writeText(q);toast("相談文をコピーしました。貼り付けて送信してください")}catch(_){}});
+/* ---------- 休憩終了のプッシュ通知（Supabase Edge Function rest-push が送る） ---------- */
+const VAPID_PUB="BN_aO41_FHoafusq8YvoOLTkemdwn8VImt1dgYfJiH-0C6xnIgw24OlAJr08IU4B331TYofTQPvulxrFLMj25dU";
+let pushOn=false,pushSynced=0,pushTimer=null,pushPending=null;
+try{pushOn=localStorage.getItem("wl_push")==="1"}catch(_){}
+const pushSupported=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
+function b64u(s){const p="=".repeat((4-s.length%4)%4);const b=atob((s+p).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from(b,c=>c.charCodeAt(0))}
+function pushSync(){if(!pushOn||!session)return;
+  let target=tEnd||0;
+  if(target&&target-Date.now()<2000&&document.visibilityState==="visible")target=0; /* 画面を見ているときはアプリ内のアラームだけ */
+  if(target===pushSynced)return;
+  if(target===pushPending)return;
+  clearTimeout(pushTimer);const want=target;pushPending=want;
+  pushTimer=setTimeout(async()=>{pushPending=null;if(want===pushSynced)return;pushSynced=want;
+    try{if(!want){await sb.from("rest_timers").delete().eq("user_id",session.user.id);return}
+      const timer_id=uuid();
+      const {error}=await sb.from("rest_timers").upsert({user_id:session.user.id,timer_id,fire_at:new Date(want).toISOString(),note:"次のセットへ！"});
+      if(error)throw error;
+      await sb.functions.invoke("rest-push",{body:{timer_id}})}catch(e){console.warn("push sync",e);pushSynced=-1}},want?300:0)}
+async function pushEnable(){
+  if(!pushSupported()){toast("ホーム画面に追加したアプリから設定してください");return false}
+  const perm=await Notification.requestPermission();
+  if(perm!=="granted"){toast("通知が許可されませんでした（iPhoneの設定→通知から変更できます）");return false}
+  const reg=await navigator.serviceWorker.ready;
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID_PUB)});
+  const j=sub.toJSON();
+  const {error}=await sb.from("push_subs").upsert({endpoint:j.endpoint,user_id:session.user.id,p256dh:j.keys.p256dh,auth:j.keys.auth});
+  if(error){toast("登録できませんでした："+(error.message||""));return false}
+  return true}
+async function pushDisable(){try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
+  if(sub){await sb.from("push_subs").delete().eq("endpoint",sub.endpoint);await sub.unsubscribe()}}catch(e){console.warn(e)}}
+function renderPushUI(){$("pushOn").checked=pushOn;$("pushTest").classList.toggle("hidden",!pushOn);
+  if(!pushSupported())$("pushNote").textContent="ホーム画面に追加したアプリで使えます（Safariで開いているときは使えません）"}
+$("pushOn").onchange=async()=>{const want=$("pushOn").checked;$("pushOn").disabled=true;
+  try{if(want){pushOn=await pushEnable()}else{await pushDisable();pushOn=false}}catch(e){toast("うまくいきませんでした："+(e.message||e));pushOn=false}
+  try{localStorage.setItem("wl_push",pushOn?"1":"0")}catch(_){}
+  $("pushOn").disabled=false;renderPushUI();if(pushOn)toast("休憩の終わりに通知します")};
+$("pushTest").onclick=async()=>{const {error}=await sb.functions.invoke("rest-push",{body:{test:true}});toast(error?"送れませんでした："+(error.message||""):"テスト通知を送りました")};
+renderPushUI();
 try{$("tipsAlways").checked=localStorage.getItem("wl_tips_always")==="1"}catch(_){}
 $("tipsAlways").onchange=()=>{try{localStorage.setItem("wl_tips_always",$("tipsAlways").checked?"1":"0")}catch(_){}renderMenu();toast($("tipsAlways").checked?"注意点を毎回表示します":"慣れた種目の注意点は自動で隠します")};
 $("consult").onclick=async()=>{const t=buildConsult();
