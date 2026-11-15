@@ -132,11 +132,14 @@ const PLATE={3:"1",4:"1.5",5:"2",6:"1.5＋1",7:"2＋1",8:"2＋1.5",9:"2＋2",10:
 const plateText=w=>""; /* ねじ込み式で最低4kg。組み方は本人の手持ちに合わせる */
 const isDb=m=>MENUS.db.includes(m);
 const RIR=[{v:3,e:"😌",l:"余裕",d:"あと3回以上"},{v:1,e:"😤",l:"ギリギリ",d:"あと1〜2回"},{v:0,e:"🔥",l:"限界",d:"あと0回"}];
+const RIR_SEC={3:"あと10秒以上",1:"あと数秒",0:"もう耐えられない"}; /* 秒で数える種目（プランク）用 */
+const rirD=(v,sec)=>sec?RIR_SEC[v]:(RIR.find(x=>x.v===v)||{}).d;
+const isSecEx=name=>{const m=findM(name);return!!(m&&m.sec)};
 const rirOf=v=>RIR.find(x=>x.v===v);
 const RIR_REST={3:90,1:120,0:150};
-function rirPicker(attr,i,cur){return `<div class="rir">${RIR.map(x=>`<button ${attr}="rir" data-i="${i}" data-v="${x.v}" class="${cur===x.v?"on":""}"><span>${x.e} ${x.l}</span><small>${x.d}</small></button>`).join("")}</div>`}
+function rirPicker(attr,i,cur,sec){return `<div class="rir">${RIR.map(x=>`<button ${attr}="rir" data-i="${i}" data-v="${x.v}" class="${cur===x.v?"on":""}"><span>${x.e} ${x.l}</span><small>${rirD(x.v,sec)}</small></button>`).join("")}</div>`}
 function rirText(x){const sl=setsOf(x);if(!sl||!sl.some(s=>s.rir!=null))return"";return sl.map(s=>s.rir!=null?rirOf(s.rir).e:"・").join("")}
-function rirWords(x){const sl=setsOf(x);if(!sl||!sl.some(s=>s.rir!=null))return"";return "きつさ："+sl.map((s,i)=>`${i+1}セット目${s.rir!=null?rirOf(s.rir).l+"（"+rirOf(s.rir).d+"）":"未入力"}`).join("、")}
+function rirWords(x){const sl=setsOf(x);if(!sl||!sl.some(s=>s.rir!=null))return"";return "きつさ："+sl.map((s,i)=>`${i+1}セット目${s.rir!=null?rirOf(s.rir).l+"（"+rirD(s.rir,isSecEx(x.exercise))+"）":"未入力"}`).join("、")}
 /* --- session timing --- */
 function sessGet(){try{return JSON.parse(localStorage.getItem("wl_sess")||"null")}catch(_){return null}}
 const sessPut=s=>{try{localStorage.setItem("wl_sess",JSON.stringify(s))}catch(_){}};
@@ -282,7 +285,7 @@ function renderMenu(){
       ${m.bw?`<div class="stp" style="flex:0 0 74px;justify-content:center;align-items:center;color:var(--mu);font-size:13px">自重</div>`:
       `<div class="stp"><button data-a="w-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="decimal" data-f="w" data-m="${m.name}" data-i="${i}" value="${s.w??""}" placeholder="kg"><span class="unit" style="align-self:center">kg</span><button data-a="w+" data-m="${m.name}" data-i="${i}">＋</button></div>`}
       <div class="stp"><button data-a="r-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="numeric" data-f="r" data-m="${m.name}" data-i="${i}" value="${s.r??""}"><span class="unit" style="align-self:center">${m.sec?"秒":"回"}</span><button data-a="r+" data-m="${m.name}" data-i="${i}">＋</button></div>
-      <button class="rm" data-a="rm" data-m="${m.name}" data-i="${i}">×</button></div>${s.done?rirPicker(`data-m="${m.name}" data-a`,i,s.rir):""}`).join("")}
+      <button class="rm" data-a="rm" data-m="${m.name}" data-i="${i}">×</button></div>${s.done?rirPicker(`data-m="${m.name}" data-a`,i,s.rir,m.sec):""}`).join("")}
       ${p.w!=null&&on.sets.some(x=>!x.done&&x.w!==p.w)?`<button class="ad fit" data-a="fit" data-m="${m.name}">残りのセットを目標の ${p.w}kg にそろえる</button>`:""}
       <button class="ad" data-a="add" data-m="${m.name}">＋ セットを追加</button>
       <input class="memo" data-f="memo" data-m="${m.name}" placeholder="メモ（フォーム・違和感など）" value="${esc(on.memo||"")}"></div>`}
@@ -544,7 +547,7 @@ function renderEdit(){if(!ed)return;const u=ed.sec?"秒":"回";
     h+=`<small class="lbl">セット${ed.unilateral?"（"+(uniLabel(findM(ed.exercise))||"片脚")+"）":""}</small>`+ed.sets.map((s,i)=>`<div class="srow"><span class="no" style="border:none">${i+1}</span>
       <div class="stp"><button data-e="w-" data-i="${i}">−</button><input inputmode="decimal" data-ef="w" data-i="${i}" value="${s.w??""}" placeholder="自重"><span class="unit" style="align-self:center">kg</span><button data-e="w+" data-i="${i}">＋</button></div>
       <div class="stp"><button data-e="r-" data-i="${i}">−</button><input inputmode="numeric" data-ef="r" data-i="${i}" value="${s.r??""}"><span class="unit" style="align-self:center">${u}</span><button data-e="r+" data-i="${i}">＋</button></div>
-      <button class="rm" data-e="rm" data-i="${i}">×</button></div>${rirPicker("data-e",i,s.rir)}`).join("")+`<button class="ad" data-e="add">＋ セットを追加</button>`;
+      <button class="rm" data-e="rm" data-i="${i}">×</button></div>${rirPicker("data-e",i,s.rir,ed.sec)}`).join("")+`<button class="ad" data-e="add">＋ セットを追加</button>`;
   }else{
     h+=`<div class="row" style="margin-top:6px"><div><small class="lbl">時間（分）</small><input inputmode="decimal" data-ef="min" value="${ed.min??""}"></div><div><small class="lbl">距離（km）</small><input inputmode="decimal" data-ef="km" value="${ed.km??""}"></div></div>
     <small class="lbl">場所</small><div class="seg">${["屋内","屋外"].map(p=>`<button class="chip ${ed.place===p?"on":""}" data-e="place" data-v="${p}">${p}</button>`).join("")}</div>`;
