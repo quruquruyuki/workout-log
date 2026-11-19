@@ -437,7 +437,7 @@ function renderMonth(){const y=st.y,m=st.m,key=mkey(y,m);
   h+=`</div>`;
   h+=`<div class="hint" style="margin-top:6px">日付をタップすると、その日の記録が見られます</div>`;
   h+=weekHtml();
-  h+=bodyHtml();
+  if(SHOW_BODY)h+=bodyHtml();
 
   /* strength summary */
   const sets=a=>a.reduce((s,x)=>s+(x.sets||0),0);
@@ -698,6 +698,7 @@ $("consult").onclick=async()=>{const t=buildConsult();
 
 /* ---------- body metrics（体重・体脂肪率） ---------- */
 const BODY_GOAL={w:[71,72],f:[18,19]};
+const SHOW_BODY=false; /* 体重欄は非表示（データはbody_metricsに残している） */
 const SHOW_FAT=false; /* 体脂肪率はヘルスケアから取れないので非表示（データは残している） */
 let body=[];
 const n1=v=>v==null||v===""||isNaN(+v)?null:Math.round(+v*10)/10;
@@ -829,8 +830,8 @@ async function onSession(s) {
   if (!s) { entries = []; server = []; pending = []; ready = false; showApp(false); return; }
   $("who").textContent = s.user.email || "";
   if (changed || !$("auth").classList.contains("hidden")) showApp(true);
-  if (changed) { await load(); loadBody(); }
-  applyRunIn(); applyBodyIn();
+  if (changed) { await load(); if (SHOW_BODY) loadBody(); }
+  applyRunIn(); if (SHOW_BODY) applyBodyIn(); else { try { sessionStorage.removeItem("wl_bodyin"); } catch (_) {} }
 }
 
 /* ---------- init ---------- */
