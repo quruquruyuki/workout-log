@@ -44,3 +44,7 @@ create table if not exists public.push_subs (endpoint text primary key, user_id 
 create table if not exists public.rest_timers (user_id uuid primary key default auth.uid() references auth.users(id) on delete cascade, timer_id uuid not null, fire_at timestamptz not null, note text, updated_at timestamptz not null default now());
 create table if not exists public.app_secrets (name text primary key, value text not null);
 -- RLS・ポリシー・grantは body_metrics と同じ形（app_secrets はポリシーなし＋anon/authenticatedからrevoke）
+
+-- v5: Claudeからの種目ごとのアドバイス（相談のたびに同じ種目は上書き）
+create table if not exists public.coach_notes (user_id uuid not null default auth.uid() references auth.users(id) on delete cascade, exercise text not null, note text not null, updated_at timestamptz not null default now(), primary key (user_id, exercise));
+-- RLS: 本人のselect/deleteのみ。書き込みはClaude（Supabase接続）から

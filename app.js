@@ -264,7 +264,13 @@ function nextPlan(m){const l=lastOf(m.name);const sl=l&&setsOf(l);
     return nw>mx?{w:nw,n:3,label:`上げどき → ${nw}kg${allEasy?"（前回は全セット余裕）":""}`,up:true,base:l}:{w:mx,n:3,label:MENUS.db.includes(m)?`上限${mx}kg。回数を20回まで増やしていく`:`上限${mx}kg。下ろすのに3秒かけて負荷アップ`,up:false,base:l}}
   const anyMax=sl.some(s=>s.rir===0&&(s.r??0)<tgt);
   return{w:mx,n:3,label:`${mx}kgで${tgt}回×3を目指す${anyMax?"（前回は限界まで出し切れています）":""}`,up:false,base:l}}
-function tipsFor(m,p){const out=[];const l=lastOf(m.name);const sl=l&&setsOf(l);
+/* ---------- Claudeからの種目ごとのアドバイス（coach_notes、相談のたびに上書き） ---------- */
+var notes={};
+async function loadNotes(){notes=lsGet("notes",{});renderMenu();
+  try{const {data,error}=await sb.from("coach_notes").select("exercise,note,updated_at");if(error)throw error;
+    notes=Object.fromEntries(data.map(x=>[x.exercise,{t:x.note,d:x.updated_at}]));lsSet("notes",notes);renderMenu()}catch(e){console.warn("notes",e)}}
+const noteDate=d=>{const x=new Date(d);return `${x.getMonth()+1}/${x.getDate()}`};
+function tipsFor(m,p){const out=[];const cn=notes[m.name];if(cn)out.push({k:"coach",t:`💬 Claude（${noteDate(cn.d)}）：${cn.t}`});const l=lastOf(m.name);const sl=l&&setsOf(l);
   if(l&&l.memo)out.push({k:"memo",t:`📝 前回のメモ：${l.memo}`});
   if(p.up)out.push({k:"up",t:"⬆ 今日は上げる日。上げた直後は10〜12回で終わっても正常、フォームが崩れなければ成功"});
   if(sl&&sl.length>=2&&!m.bw){const ws=sl.map(x=>x.w??0),mx=Math.max(...ws);
@@ -290,7 +296,7 @@ function renderMenu(){
       <button class="ad" data-a="add" data-m="${m.name}">＋ セットを追加</button>
       <input class="memo" data-f="memo" data-m="${m.name}" placeholder="メモ（フォーム・違和感など）" value="${esc(on.memo||"")}"></div>`}
     return `<div class="mc ${on?"on":""}"><button class="mch" data-a="tg" data-m="${m.name}"><span class="ck">${on?"✓":""}</span><span style="flex:1;min-width:0">
-      <div class="nm">${m.name}<small>${m.part}${m.uni?"・"+uniLabel(m):""}</small></div><div class="pv">${pv}</div><div class="nx ${p.up?"up":""}">次回の目安：${esc(p.label)}</div></span>${p.w!=null?`<span class="tgt ${p.up?"up":""}"><small>目標</small><b>${p.w}</b><i>kg</i>${p.up?`<em>▲UP</em>`:""}</span>`:""}</button>${body}</div>`}).join("");
+      <div class="nm">${m.name}${notes[m.name]&&!on?'<span class="cn">💬</span>':""}<small>${m.part}${m.uni?"・"+uniLabel(m):""}</small></div><div class="pv">${pv}</div><div class="nx ${p.up?"up":""}">次回の目安：${esc(p.label)}</div></span>${p.w!=null?`<span class="tgt ${p.up?"up":""}"><small>目標</small><b>${p.w}</b><i>kg</i>${p.up?`<em>▲UP</em>`:""}</span>`:""}</button>${body}</div>`}).join("");
   updateSave()}
 $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;
   const m=findM(b.dataset.m),a=b.dataset.a,i=+b.dataset.i;
@@ -640,7 +646,7 @@ function buildConsult(){const since=new Date();since.setDate(since.getDate()-42)
   const notes=rows.filter(x=>x.memo);
   if(notes.length)t+="\n【メモがある記録】\n"+notes.map(x=>`${x.date.slice(5)} ${x.exercise||"ラン"}：${x.memo}`).join("\n")+"\n";
   return t}
-function askPrompt(){return `運動ログアプリの記録（Supabaseプロジェクト「workout-log」、ID: twixkmtxfneivijvupyu の workouts テーブル）を読んで、直近の筋トレについてアドバイスをください。前回からの変化、次回の重さの目安、メモにある違和感への対処を中心にお願いします。（今日は${ymd(new Date())}）`}
+function askPrompt(){return `運動ログアプリの記録（Supabaseプロジェクト「workout-log」、ID: twixkmtxfneivijvupyu の workouts テーブル）を読んで、直近の筋トレについてアドバイスをください。前回からの変化、次回の重さの目安、メモにある違和感への対処を中心にお願いします。アドバイスは種目ごとに coach_notes テーブル（user_id・exercise・note、同じ種目は上書き）にも書き込んで、アプリに表示されるようにしてください。（今日は${ymd(new Date())}）`}
 const ASK_DEFAULT="https://claude.ai/code/session_01Bw63Nz2BF8o3EN42vdwFbR";
 function askUrl(){let u;try{u=localStorage.getItem("wl_askurl")}catch(_){}return u==null?ASK_DEFAULT:u}
 $("askUrl").value=askUrl();
@@ -830,7 +836,7 @@ async function onSession(s) {
   if (!s) { entries = []; server = []; pending = []; ready = false; showApp(false); return; }
   $("who").textContent = s.user.email || "";
   if (changed || !$("auth").classList.contains("hidden")) showApp(true);
-  if (changed) { await load(); if (SHOW_BODY) loadBody(); }
+  if (changed) { await load(); loadNotes(); if (SHOW_BODY) loadBody(); }
   applyRunIn(); if (SHOW_BODY) applyBodyIn(); else { try { sessionStorage.removeItem("wl_bodyin"); } catch (_) {} }
 }
 
