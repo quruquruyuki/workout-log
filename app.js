@@ -5,7 +5,7 @@ const sb = createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRe
 let session = null;
 
 /* ---------- data layer (Supabase + offline queue) ---------- */
-const TABLE = "workouts";
+const TABLE = "wl_workouts";
 let server = [];   // confirmed rows
 let pending = [];  // [{op:"ins",row}|{op:"del",id}]
 let flushing = false;
@@ -267,7 +267,7 @@ function nextPlan(m){const l=lastOf(m.name);const sl=l&&setsOf(l);
 /* ---------- Claudeからの種目ごとのアドバイス（coach_notes、相談のたびに上書き） ---------- */
 var notes={};
 async function loadNotes(){notes=lsGet("notes",{});renderMenu();
-  try{const {data,error}=await sb.from("coach_notes").select("exercise,note,updated_at");if(error)throw error;
+  try{const {data,error}=await sb.from("wl_coach_notes").select("exercise,note,updated_at");if(error)throw error;
     notes=Object.fromEntries(data.map(x=>[x.exercise,{t:x.note,d:x.updated_at}]));lsSet("notes",notes);renderMenu()}catch(e){console.warn("notes",e)}}
 const noteDate=d=>{const x=new Date(d);return `${x.getMonth()+1}/${x.getDate()}`};
 function tipsFor(m,p){const out=[];const cn=notes[m.name];if(cn)out.push({k:"coach",t:`💬 Claude（${noteDate(cn.d)}）：${cn.t}`});const l=lastOf(m.name);const sl=l&&setsOf(l);
@@ -646,7 +646,7 @@ function buildConsult(){const since=new Date();since.setDate(since.getDate()-42)
   const notes=rows.filter(x=>x.memo);
   if(notes.length)t+="\n【メモがある記録】\n"+notes.map(x=>`${x.date.slice(5)} ${x.exercise||"ラン"}：${x.memo}`).join("\n")+"\n";
   return t}
-function askPrompt(){return `運動ログアプリの記録（Supabaseプロジェクト「workout-log」、ID: twixkmtxfneivijvupyu の workouts テーブル）を読んで、直近の筋トレについてアドバイスをください。前回からの変化、次回の重さの目安、メモにある違和感への対処を中心にお願いします。アドバイスは種目ごとに coach_notes テーブル（user_id・exercise・note、同じ種目は上書き）にも書き込んで、アプリに表示されるようにしてください。（今日は${ymd(new Date())}）`}
+function askPrompt(){return `運動ログアプリの記録（Supabaseプロジェクト「quruquruyuki's Project」、ID: oqtyorwlrnrcyjxiassg の wl_workouts テーブル）を読んで、直近の筋トレについてアドバイスをください。前回からの変化、次回の重さの目安、メモにある違和感への対処を中心にお願いします。アドバイスは種目ごとに wl_coach_notes テーブル（user_id・exercise・note、同じ種目は上書き）にも書き込んで、アプリに表示されるようにしてください。（今日は${ymd(new Date())}）`}
 const ASK_DEFAULT="https://claude.ai/code/session_01Bw63Nz2BF8o3EN42vdwFbR";
 function askUrl(){let u;try{u=localStorage.getItem("wl_askurl")}catch(_){}return u==null?ASK_DEFAULT:u}
 $("askUrl").value=askUrl();
@@ -657,7 +657,7 @@ $("askApp").addEventListener("click",async e=>{const u=askUrl(),q=askPrompt();
   if(!u){$("askApp").href="https://claude.ai/new?q="+encodeURIComponent(q);return}
   $("askApp").href=u;
   try{await navigator.clipboard.writeText(q);toast("相談文をコピーしました。貼り付けて送信してください")}catch(_){}});
-/* ---------- 休憩終了のプッシュ通知（Supabase Edge Function rest-push が送る） ---------- */
+/* ---------- 休憩終了のプッシュ通知（Supabase Edge Function workout-rest-push が送る） ---------- */
 const VAPID_PUB="BN_aO41_FHoafusq8YvoOLTkemdwn8VImt1dgYfJiH-0C6xnIgw24OlAJr08IU4B331TYofTQPvulxrFLMj25dU";
 let pushOn=false,pushSynced=0,pushTimer=null,pushPending=null;
 try{pushOn=localStorage.getItem("wl_push")==="1"}catch(_){}
@@ -670,11 +670,11 @@ function pushSync(){if(!pushOn||!session)return;
   if(target===pushPending)return;
   clearTimeout(pushTimer);const want=target;pushPending=want;
   pushTimer=setTimeout(async()=>{pushPending=null;if(want===pushSynced)return;pushSynced=want;
-    try{if(!want){await sb.from("rest_timers").delete().eq("user_id",session.user.id);return}
+    try{if(!want){await sb.from("wl_rest_timers").delete().eq("user_id",session.user.id);return}
       const timer_id=uuid();
-      const {error}=await sb.from("rest_timers").upsert({user_id:session.user.id,timer_id,fire_at:new Date(want).toISOString(),note:"次のセットへ！"});
+      const {error}=await sb.from("wl_rest_timers").upsert({user_id:session.user.id,timer_id,fire_at:new Date(want).toISOString(),note:"次のセットへ！"});
       if(error)throw error;
-      await sb.functions.invoke("rest-push",{body:{timer_id}})}catch(e){console.warn("push sync",e);pushSynced=-1}},want?300:0)}
+      await sb.functions.invoke("workout-rest-push",{body:{timer_id}})}catch(e){console.warn("push sync",e);pushSynced=-1}},want?300:0)}
 async function pushEnable(){
   if(!pushSupported()){toast("ホーム画面に追加したアプリから設定してください");return false}
   const perm=await Notification.requestPermission();
@@ -683,18 +683,18 @@ async function pushEnable(){
   let sub=await reg.pushManager.getSubscription();
   if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID_PUB)});
   const j=sub.toJSON();
-  const {error}=await sb.from("push_subs").upsert({endpoint:j.endpoint,user_id:session.user.id,p256dh:j.keys.p256dh,auth:j.keys.auth});
+  const {error}=await sb.from("wl_push_subs").upsert({endpoint:j.endpoint,user_id:session.user.id,p256dh:j.keys.p256dh,auth:j.keys.auth});
   if(error){toast("登録できませんでした："+(error.message||""));return false}
   return true}
 async function pushDisable(){try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
-  if(sub){await sb.from("push_subs").delete().eq("endpoint",sub.endpoint);await sub.unsubscribe()}}catch(e){console.warn(e)}}
+  if(sub){await sb.from("wl_push_subs").delete().eq("endpoint",sub.endpoint);await sub.unsubscribe()}}catch(e){console.warn(e)}}
 function renderPushUI(){$("pushOn").checked=pushOn;$("pushTest").classList.toggle("hidden",!pushOn);
   if(!pushSupported())$("pushNote").textContent="ホーム画面に追加したアプリで使えます（Safariで開いているときは使えません）"}
 $("pushOn").onchange=async()=>{const want=$("pushOn").checked;$("pushOn").disabled=true;
   try{if(want){pushOn=await pushEnable()}else{await pushDisable();pushOn=false}}catch(e){toast("うまくいきませんでした："+(e.message||e));pushOn=false}
   try{localStorage.setItem("wl_push",pushOn?"1":"0")}catch(_){}
   $("pushOn").disabled=false;renderPushUI();if(pushOn)toast("休憩の終わりに通知します")};
-$("pushTest").onclick=async()=>{const {error}=await sb.functions.invoke("rest-push",{body:{test:true}});toast(error?"送れませんでした："+(error.message||""):"テスト通知を送りました")};
+$("pushTest").onclick=async()=>{const {error}=await sb.functions.invoke("workout-rest-push",{body:{test:true}});toast(error?"送れませんでした："+(error.message||""):"テスト通知を送りました")};
 renderPushUI();
 try{$("tipsAlways").checked=localStorage.getItem("wl_tips_always")==="1"}catch(_){}
 $("tipsAlways").onchange=()=>{try{localStorage.setItem("wl_tips_always",$("tipsAlways").checked?"1":"0")}catch(_){}renderMenu();toast($("tipsAlways").checked?"注意点を毎回表示します":"慣れた種目の注意点は自動で隠します")};
@@ -710,15 +710,15 @@ let body=[];
 const n1=v=>v==null||v===""||isNaN(+v)?null:Math.round(+v*10)/10;
 async function loadBody(){try{body=JSON.parse(localStorage.getItem(lsKey("body"))||"[]")}catch(_){}
   renderBodyArea();
-  try{const {data,error}=await sb.from("body_metrics").select("id,date,weight,fat,memo").order("date");if(error)throw error;
+  try{const {data,error}=await sb.from("wl_body_metrics").select("id,date,weight,fat,memo").order("date");if(error)throw error;
     body=data.map(x=>({...x,weight:n1(x.weight),fat:n1(x.fat)}));lsSet("body",body)}catch(e){console.warn(e)}
   renderBodyArea()}
 function renderBodyArea(){if(!$("v-month").classList.contains("hidden"))renderMonth()}
 async function saveBody(rec){const ex=body.find(b=>b.date===rec.date);const row={id:ex?ex.id:uuid(),date:rec.date,weight:n1(rec.weight),fat:n1(rec.fat),memo:rec.memo||null};
   body=body.filter(b=>b.date!==row.date).concat(row).sort((a,b)=>a.date.localeCompare(b.date));lsSet("body",body);renderBodyArea();
-  const {error}=await sb.from("body_metrics").upsert(row);if(error){console.warn(error);toast("保存できませんでした。通信を確認してもう一度お試しください")}else toast(SHOW_FAT?"体重・体脂肪率を記録しました":"体重を記録しました")}
+  const {error}=await sb.from("wl_body_metrics").upsert(row);if(error){console.warn(error);toast("保存できませんでした。通信を確認してもう一度お試しください")}else toast(SHOW_FAT?"体重・体脂肪率を記録しました":"体重を記録しました")}
 async function delBody(date){const ex=body.find(b=>b.date===date);if(!ex)return;body=body.filter(b=>b.date!==date);lsSet("body",body);renderBodyArea();
-  const {error}=await sb.from("body_metrics").delete().eq("id",ex.id);toast(error?"削除できませんでした":"削除しました")}
+  const {error}=await sb.from("wl_body_metrics").delete().eq("id",ex.id);toast(error?"削除できませんでした":"削除しました")}
 function lineSvg(pts,band,unit){if(!pts.length)return"";const W=330,H=130,L=34,R=10,T=10,B=22;
   const vs=pts.map(p=>p.v).concat(band||[]);let lo=Math.min(...vs),hi=Math.max(...vs);const pd=Math.max(.5,(hi-lo)*.15);lo-=pd;hi+=pd;
   const t0=+new Date(pts[0].d),t1=+new Date(pts[pts.length-1].d);const X=d=>pts.length===1?L+(W-L-R)/2:L+(+new Date(d)-t0)/(t1-t0||1)*(W-L-R),Y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo));

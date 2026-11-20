@@ -20,3 +20,9 @@
 - 記録は本人のアカウントからだけ読み書きできる（RLS）。
 - オフライン中の記録は端末に保存され、オンラインに戻ると自動で送信される。
 - Supabase 無料枠は1週間アクセスがないと一時停止する（データは残り、管理画面から再開できる）。
+
+## データの置き場所（2026-11-20 変更）
+
+- Supabase はほかの自作アプリと同じプロジェクト「quruquruyuki's Project」に同居している（もとは別プロジェクト workout-log）。ログインもほかのアプリと同じアカウント
+- 表は `wl_` で始まる（wl_workouts / wl_body_metrics / wl_push_subs / wl_rest_timers / wl_coach_notes / wl_secrets）
+- 休憩終了の通知は Edge Function `workout-rest-push`（`supabase/functions/workout-rest-push`）
