@@ -146,6 +146,7 @@ const sessPut=s=>{try{localStorage.setItem("wl_sess",JSON.stringify(s))}catch(_)
 const SESS_IDLE=60*60*1000; /* 1時間なにもしなければ終了扱い */
 function sessMark(real){const d=ymd(new Date());let s=sessGet();const now=new Date().toISOString();
   let old=null;if(s&&s.d===d&&s.end&&Date.now()-new Date(s.end)>SESS_IDLE){old=s;s=null} /* 終わってから時間が空いたら新しいトレーニング */
+  if(s&&s.d===d&&s.end&&!real)return; /* 記録後に種目を開いて見るだけでは再開しない（セットを✓したら再開） */
   if(s&&s.d===d){if(s.end){s.prevEnd=s.end;delete s.end}}
   else{s={d,t:now,fresh:true};if(old){delete old.prevSess;s.prevSess=old}}
   s.last=now;if(real){delete s.fresh;delete s.prevEnd;delete s.prevSess}
@@ -302,7 +303,7 @@ function renderMenu(){
       <input class="memo" data-f="memo" data-m="${m.name}" placeholder="メモ（フォーム・違和感など）" value="${esc(on.memo||"")}">
       <button class="ad drop" data-a="drop" data-m="${m.name}">この種目を外す（入力を消す）</button></div>`}
     return `<div class="mc ${on?"on":""}"><button class="mch" data-a="tg" data-m="${m.name}"><span class="ck">${on?"✓":""}</span><span style="flex:1;min-width:0">
-      <div class="nm">${m.name}${notes[m.name]&&!on?'<span class="cn">💬</span>':""}<small>${m.part}${m.uni?"・"+uniLabel(m):""}</small></div><div class="pv">${pv}</div><div class="nx ${p.up?"up":""}">次回の目安：${esc(p.label)}</div></span>${p.w!=null?`<span class="tgt ${p.up?"up":""}"><small>目標</small><b>${p.w}</b><i>kg</i>${p.up?`<em>▲UP</em>`:""}</span>`:""}</button>${body}</div>`}).join("");
+      <div class="nm">${m.name}${l&&l.date===$("date").value?'<span class="today">今日記録済み</span>':""}${notes[m.name]&&!on?'<span class="cn">💬</span>':""}<small>${m.part}${m.uni?"・"+uniLabel(m):""}</small></div><div class="pv">${pv}</div><div class="nx ${p.up?"up":""}">次回の目安：${esc(p.label)}</div></span>${p.w!=null?`<span class="tgt ${p.up?"up":""}"><small>目標</small><b>${p.w}</b><i>kg</i>${p.up?`<em>▲UP</em>`:""}</span>`:""}</button>${body}</div>`}).join("");
   updateSave();draftSave()}
 $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;
   const m=findM(b.dataset.m),a=b.dataset.a,i=+b.dataset.i;
