@@ -251,7 +251,13 @@ function fmtSet(x){const sl=setsOf(x);
   const txt=grp.map(g=>{const rs=g.r.map(v=>v==null?"?":v+u);
     const same=rs.every(v=>v===rs[0]);return g.k+"×"+(same&&rs.length>1?rs[0]+"×"+rs.length:rs.join(","))}).join(" → ");
   return (x.unilateral?(uniLabel(findM(x.exercise))||"片脚"):"")+txt}
-function nextPlan(m){const l=lastOf(m.name);const sl=l&&setsOf(l);
+/* Claudeのアドバイスに目安の重さ（target_w）があり、前回の記録より新しければそれを優先 */
+function coachW(m){const cn=notes[m.name];if(!cn||cn.w==null||m.bw)return null;const l=lastOf(m.name);
+  if(l&&l.ts&&new Date(cn.d)<new Date(l.ts))return null;return cn.w}
+function nextPlan(m){const p=autoPlan(m);const cw=coachW(m);if(cw==null)return p;
+  const l=p.base;const lastW=l?(l.weight??null):null;
+  return{...p,w:cw,n:3,up:lastW!=null&&cw>lastW,label:`${cw}kgで${m.target||TARGET}回×3（Claudeの目安）`}}
+function autoPlan(m){const l=lastOf(m.name);const sl=l&&setsOf(l);
   const tgt=m.target||TARGET;
   if(!sl)return{w:m.start??null,n:3,label:l?"前回はセット別の記録なし":m.start?`はじめて：まず${m.start}kg（${m.dbset}）`:"はじめての記録",up:false,base:l};
   const ws=sl.map(s=>s.w).filter(v=>v!=null);const mx=ws.length?Math.max(...ws):null;
@@ -271,8 +277,8 @@ function nextPlan(m){const l=lastOf(m.name);const sl=l&&setsOf(l);
 /* ---------- Claudeからの種目ごとのアドバイス（coach_notes、相談のたびに上書き） ---------- */
 var notes={};
 async function loadNotes(){notes=lsGet("notes",{});renderMenu();
-  try{const {data,error}=await sb.from("wl_coach_notes").select("exercise,note,updated_at");if(error)throw error;
-    notes=Object.fromEntries(data.map(x=>[x.exercise,{t:x.note,d:x.updated_at}]));lsSet("notes",notes);renderMenu()}catch(e){console.warn("notes",e)}}
+  try{const {data,error}=await sb.from("wl_coach_notes").select("exercise,note,updated_at,target_w");if(error)throw error;
+    notes=Object.fromEntries(data.map(x=>[x.exercise,{t:x.note,d:x.updated_at,w:x.target_w==null?null:+x.target_w}]));lsSet("notes",notes);renderMenu()}catch(e){console.warn("notes",e)}}
 const noteDate=d=>{const x=new Date(d);return `${x.getMonth()+1}/${x.getDate()}`};
 function tipsFor(m,p){const out=[];const cn=notes[m.name];if(cn)out.push({k:"coach",t:`💬 Claude（${noteDate(cn.d)}）：${cn.t}`});const l=lastOf(m.name);const sl=l&&setsOf(l);
   if(l&&l.memo)out.push({k:"memo",t:`📝 前回のメモ：${l.memo}`});
@@ -312,8 +318,9 @@ $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");
     if(o&&(o.closed||o.sets.some(x=>x.done)||(o.memo||"").trim())){o.closed=!o.closed;renderMenu();return} /* 入力済みなら畳むだけ */
     if(o){delete menuSt[m.name];sessUndo()}else{sessMark();const tgt=m.target||TARGET;
       const l=lastOf(m.name);const sl=l&&setsOf(l);
-      const n=Math.max(3,sl?sl.length:0);
-      const lw=i=>{if(m.bw)return null;if(sl){const s=sl[Math.min(i,sl.length-1)];return s.w??null}return l?(l.weight??null):(m.start??null)};
+      const n=3; /* 毎回3セットから（必要なら＋セットを追加） */
+      const cw=coachW(m);
+      const lw=i=>{if(m.bw)return null;if(cw!=null)return cw;if(sl){const s=sl[Math.min(i,sl.length-1)];return s.w??null}return l?(l.weight??null):(m.start??null)};
       const lr=i=>{if(!isDb(m)||!sl)return tgt;const s=sl[Math.min(i,sl.length-1)];return Math.min(DB_TOP,Math.max(tgt,s.r||tgt))};
       menuSt[m.name]={sets:Array.from({length:n},(_,i)=>({w:lw(i),r:lr(i)})),memo:""}}
     renderMenu();return}
@@ -656,7 +663,7 @@ function buildConsult(){const since=new Date();since.setDate(since.getDate()-42)
   const notes=rows.filter(x=>x.memo);
   if(notes.length)t+="\n【メモがある記録】\n"+notes.map(x=>`${x.date.slice(5)} ${x.exercise||"ラン"}：${x.memo}`).join("\n")+"\n";
   return t}
-function askPrompt(){return `運動ログアプリの記録（Supabaseプロジェクト「quruquruyuki's Project」、ID: oqtyorwlrnrcyjxiassg の wl_workouts テーブル）を読んで、直近の筋トレについてアドバイスをください。前回からの変化、次回の重さの目安、メモにある違和感への対処を中心にお願いします。アドバイスは種目ごとに wl_coach_notes テーブル（user_id・exercise・note、同じ種目は上書き）にも書き込んで、アプリに表示されるようにしてください。（今日は${ymd(new Date())}）`}
+function askPrompt(){return `運動ログアプリの記録（Supabaseプロジェクト「quruquruyuki's Project」、ID: oqtyorwlrnrcyjxiassg の wl_workouts テーブル）を読んで、直近の筋トレについてアドバイスをください。前回からの変化、次回の重さの目安、メモにある違和感への対処を中心にお願いします。アドバイスは種目ごとに wl_coach_notes テーブル（user_id・exercise・note・target_w＝次回の目安の重さkg、同じ種目は上書き）にも書き込んで、アプリに表示されるようにしてください。（今日は${ymd(new Date())}）`}
 const ASK_DEFAULT="https://claude.ai/code/session_01Bw63Nz2BF8o3EN42vdwFbR";
 function askUrl(){let u;try{u=localStorage.getItem("wl_askurl")}catch(_){}return u==null?ASK_DEFAULT:u}
 $("askUrl").value=askUrl();
