@@ -172,6 +172,9 @@ function dayMinutes(list){const st=list.map(x=>x.started_at).filter(Boolean).map
   const en=list.filter(x=>x.type==="strength").map(x=>+new Date(x.ts)).filter(v=>!isNaN(v));
   if(!st.length||!en.length)return null;const m=Math.round((Math.max(...en)-Math.min(...st))/60000);return m>0&&m<240?m:null}
 const menuSt={};
+/* 入力途中の内容を端末に保存（アプリを閉じても・畳んでも消えないように） */
+function draftSave(){try{localStorage.setItem("wl_draft",JSON.stringify({d:ymd(new Date()),st:menuSt}))}catch(_){}}
+(()=>{try{const v=JSON.parse(localStorage.getItem("wl_draft")||"null");if(v&&v.d===ymd(new Date())&&v.st)Object.assign(menuSt,v.st)}catch(_){}})();
 const st={type:"machine",part:"胸",ex:null,custom:false,place:"屋内",y:today.getFullYear(),m:today.getMonth()};
 
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("on"),1800)}
@@ -287,20 +290,26 @@ function renderMenu(){
   $("menuList").innerHTML=curMenu().map(m=>{const p=nextPlan(m),on=menuSt[m.name];const l=p.base;
     const pv=l?`前回 ${l.date.slice(5).replace("-","/")}：${esc(fmtSet(l))}${rirText(l)?" "+rirText(l):""}${l.memo?"（"+esc(l.memo)+"）":""}`:"まだ記録なし";
     let body="";
-    if(on){const tl=tipsFor(m,p);body=`<div class="mb">${tl.length?`<ul class="tips">${tl.map(t=>`<li class="${t.k}">${esc(t.t)}</li>`).join("")}</ul>`:""}${on.sets.map((s,i)=>`<div class="srow"><button class="no ${s.done?"dn":""}" data-a="done" data-m="${m.name}" data-i="${i}">${s.done?(s.rir!=null?rirOf(s.rir).e:"✓"):i+1}</button>
+    if(on&&on.closed){const dn=on.sets.filter(x=>x.done).length;
+      body=`<div class="mb closed" data-a="tg" data-m="${m.name}">入力中：${on.sets.length}セット（済み${dn}）${(on.memo||"").trim()?"・メモあり":""}　<u>開く</u></div>`}
+    else if(on){const tl=tipsFor(m,p);body=`<div class="mb">${tl.length?`<ul class="tips">${tl.map(t=>`<li class="${t.k}">${esc(t.t)}</li>`).join("")}</ul>`:""}${on.sets.map((s,i)=>`<div class="srow"><button class="no ${s.done?"dn":""}" data-a="done" data-m="${m.name}" data-i="${i}">${s.done?(s.rir!=null?rirOf(s.rir).e:"✓"):i+1}</button>
       ${m.bw?`<div class="stp" style="flex:0 0 74px;justify-content:center;align-items:center;color:var(--mu);font-size:13px">自重</div>`:
       `<div class="stp"><button data-a="w-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="decimal" data-f="w" data-m="${m.name}" data-i="${i}" value="${s.w??""}" placeholder="kg"><span class="unit" style="align-self:center">kg</span><button data-a="w+" data-m="${m.name}" data-i="${i}">＋</button></div>`}
       <div class="stp"><button data-a="r-" data-m="${m.name}" data-i="${i}">−</button><input inputmode="numeric" data-f="r" data-m="${m.name}" data-i="${i}" value="${s.r??""}"><span class="unit" style="align-self:center">${m.sec?"秒":"回"}</span><button data-a="r+" data-m="${m.name}" data-i="${i}">＋</button></div>
       <button class="rm" data-a="rm" data-m="${m.name}" data-i="${i}">×</button></div>${s.done?rirPicker(`data-m="${m.name}" data-a`,i,s.rir,m.sec):""}`).join("")}
       ${p.w!=null&&on.sets.some(x=>!x.done&&x.w!==p.w)?`<button class="ad fit" data-a="fit" data-m="${m.name}">残りのセットを目標の ${p.w}kg にそろえる</button>`:""}
       <button class="ad" data-a="add" data-m="${m.name}">＋ セットを追加</button>
-      <input class="memo" data-f="memo" data-m="${m.name}" placeholder="メモ（フォーム・違和感など）" value="${esc(on.memo||"")}"></div>`}
+      <input class="memo" data-f="memo" data-m="${m.name}" placeholder="メモ（フォーム・違和感など）" value="${esc(on.memo||"")}">
+      <button class="ad drop" data-a="drop" data-m="${m.name}">この種目を外す（入力を消す）</button></div>`}
     return `<div class="mc ${on?"on":""}"><button class="mch" data-a="tg" data-m="${m.name}"><span class="ck">${on?"✓":""}</span><span style="flex:1;min-width:0">
       <div class="nm">${m.name}${notes[m.name]&&!on?'<span class="cn">💬</span>':""}<small>${m.part}${m.uni?"・"+uniLabel(m):""}</small></div><div class="pv">${pv}</div><div class="nx ${p.up?"up":""}">次回の目安：${esc(p.label)}</div></span>${p.w!=null?`<span class="tgt ${p.up?"up":""}"><small>目標</small><b>${p.w}</b><i>kg</i>${p.up?`<em>▲UP</em>`:""}</span>`:""}</button>${body}</div>`}).join("");
-  updateSave()}
+  updateSave();draftSave()}
 $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;
   const m=findM(b.dataset.m),a=b.dataset.a,i=+b.dataset.i;
-  if(a==="tg"){if(menuSt[m.name]){const had=menuSt[m.name].sets.some(x=>x.done);delete menuSt[m.name];if(!had)sessUndo()}else{sessMark();const tgt=m.target||TARGET;
+  if(a==="drop"){const had=menuSt[m.name]&&menuSt[m.name].sets.some(x=>x.done);delete menuSt[m.name];if(!had)sessUndo();renderMenu();return}
+  if(a==="tg"){const o=menuSt[m.name];
+    if(o&&(o.closed||o.sets.some(x=>x.done)||(o.memo||"").trim())){o.closed=!o.closed;renderMenu();return} /* 入力済みなら畳むだけ */
+    if(o){delete menuSt[m.name];sessUndo()}else{sessMark();const tgt=m.target||TARGET;
       const l=lastOf(m.name);const sl=l&&setsOf(l);
       const n=Math.max(3,sl?sl.length:0);
       const lw=i=>{if(m.bw)return null;if(sl){const s=sl[Math.min(i,sl.length-1)];return s.w??null}return l?(l.weight??null):(m.start??null)};
@@ -323,7 +332,7 @@ $("menuList").addEventListener("click",e=>{const b=e.target.closest("[data-a]");
     if(navigator.vibrate)try{navigator.vibrate(8)}catch(_){}}
   renderMenu()});
 $("menuList").addEventListener("input",e=>{const t=e.target;if(!t.dataset.f)return;const o=menuSt[t.dataset.m];if(!o)return;
-  if(t.dataset.f==="memo"){o.memo=t.value;return}
+  if(t.dataset.f==="memo"){o.memo=t.value;draftSave();return}
   const v=parseFloat(t.value),i=+t.dataset.i,f=t.dataset.f,old=o.sets[i][f];o.sets[i][f]=isNaN(v)?null:v;
   if(f==="w")for(let k=i+1;k<o.sets.length;k++){if(o.sets[k].w===old&&!o.sets[k].done){o.sets[k].w=o.sets[i].w;
     const el=document.querySelector(`#menuList input[data-f="w"][data-m="${t.dataset.m}"][data-i="${k}"]`);if(el)el.value=o.sets[i].w??""}else break}});
@@ -332,7 +341,7 @@ function saveMenu(date){const list=menuOn();
     const ws=sl.map(s=>s.w).filter(v=>v!=null);
     addEntry({type:"strength",date,part:m.part,exercise:m.name,unilateral:!!m.uni,set_list:sl,
       weight:ws.length?Math.max(...ws):null,reps:sl.map(s=>s.r??"?").join(","),sets:sl.length,memo:(o.memo||"").trim()||null});
-    delete menuSt[m.name]});
+    delete menuSt[m.name]});draftSave();
   if(!Object.keys(menuSt).length){const s_=sessGet();if(s_){s_.end=new Date().toISOString();delete s_.fresh;delete s_.prevEnd;delete s_.prevSess;try{localStorage.setItem("wl_sess",JSON.stringify(s_))}catch(_){}renderElapsed()}}
   return list.length}
 
@@ -852,3 +861,4 @@ if (!CFG.url || !CFG.key) {
   sb.auth.onAuthStateChange((_ev, s) => { setTimeout(() => onSession(s), 0); });
 }
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+$("menuList").addEventListener("input",()=>draftSave());
